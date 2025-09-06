@@ -3,8 +3,8 @@
 # pip install PyQt5 PyQtWebEngine markdown chardet
 
 
-# TODO: Проблема с RU кодировкой
-# TODO: инфо сообщения в консоли:
+# 1 Проблема с RU кодировкой
+# 1 инфо сообщения в консоли:
 '''
 main.py: DeprecationWarning:
 sipPyTypeDict() is deprecated, the extension module should use sipPyTypeDictRef() instead
