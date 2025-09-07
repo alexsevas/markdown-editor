@@ -2,18 +2,15 @@
 
 # pip install PyQt5 PyQtWebEngine markdown chardet
 
-
-# 1 Проблема с RU кодировкой
-# 1 инфо сообщения в консоли:
+# + Проблема с RU кодировкой
+# - инфо сообщения в консоли:
 '''
 main.py: DeprecationWarning:
 sipPyTypeDict() is deprecated, the extension module should use sipPyTypeDictRef() instead
 '''
 
 
-
 import sys
-
 import chardet
 import markdown
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout,
@@ -24,8 +21,6 @@ from PyQt5.QtCore import QUrl, QTimer, Qt
 from PyQt5.QtGui import (QFont, QColor, QTextCharFormat, QSyntaxHighlighter,
                          QTextCursor, QKeySequence, QPalette)
 from PyQt5.QtWebChannel import QWebChannel
-
-
 
 class MarkdownHighlighter(QSyntaxHighlighter):
     """Syntax highlighter for Markdown syntax"""
@@ -137,7 +132,6 @@ class MarkdownHighlighter(QSyntaxHighlighter):
             start = match.start() + offset
             length = match.end() - match.start() - 2 * offset
             self.setFormat(start, length, self.formats[format_key])
-
 
 
 class MarkdownEditor(QMainWindow):
@@ -288,6 +282,69 @@ class MarkdownEditor(QMainWindow):
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 
+        # Добавляем меню кодировок
+        encoding_menu = self.menuBar().addMenu("Encoding")
+
+        # Список популярных кодировок для кириллицы
+        encodings = [
+            ("UTF-8", "utf-8"),
+            ("Windows-1251 (Cyrillic)", "cp1251"),
+            ("KOI8-R", "koi8-r"),
+            ("UTF-16", "utf-16"),
+            ("ISO-8859-5", "iso8859_5"),
+            ("MacCyrillic", "mac_cyrillic")
+        ]
+
+        # Создаем действия для каждой кодировки
+        self.encoding_actions = {}
+        for name, encoding in encodings:
+            action = QAction(name, self)
+            action.setCheckable(True)
+            action.triggered.connect(lambda checked, enc=encoding: self.set_encoding(enc))
+            encoding_menu.addAction(action)
+            self.encoding_actions[encoding] = action
+
+        # По умолчанию выбрана UTF-8
+        self.current_encoding = "utf-8"
+        self.encoding_actions["utf-8"].setChecked(True)
+
+
+
+    def set_encoding(self, encoding):
+        """Установить кодировку и перезагрузить файл"""
+        if not self.current_file:
+            return
+
+        # Обновляем статус и запоминаем выбранную кодировку
+        self.current_encoding = encoding
+
+        # Переключаем отметку в меню
+        for enc, action in self.encoding_actions.items():
+            action.setChecked(enc == encoding)
+
+        # Перечитываем файл с новой кодировкой
+        try:
+            with open(self.current_file, 'rb') as f:
+                raw = f.read()
+            text = raw.decode(encoding, errors='replace')
+
+            # Сохраняем положение курсора
+            cursor = self.editor.textCursor()
+            scroll_pos = self.editor.verticalScrollBar().value()
+
+            self.editor.setPlainText(text)
+
+            # Восстанавливаем положение
+            self.editor.setTextCursor(cursor)
+            self.editor.verticalScrollBar().setValue(scroll_pos)
+
+            self.statusBar().showMessage(f"Reloaded with {encoding} encoding", 3000)
+        except Exception as e:
+            QMessageBox.warning(self, "Encoding Error",
+                                f"Failed to decode with {encoding}:\n{str(e)}")
+
+
+
     def setup_shortcuts(self):
         # Additional shortcuts
         QShortcut(QKeySequence("Ctrl+Z"), self, self.editor.undo)
@@ -312,7 +369,7 @@ class MarkdownEditor(QMainWindow):
         self.preview.setHtml(html, QUrl(""))
 
     def markdown_to_html(self, md_text):
-        """Convert markdown text to HTML with styling"""
+        """Convert markdown text to HTML with styling similar"""
         # Convert markdown to HTML
         html = markdown.markdown(md_text,
                                  extensions=['fenced_code', 'tables', 'nl2br', 'sane_lists'])
@@ -477,36 +534,49 @@ class MarkdownEditor(QMainWindow):
         self.setWindowTitle("Markdown Editor - New Document")
 
     def open_file(self):
-        """Open a markdown file"""
+        """Open a markdown file with manual encoding selection"""
         path, _ = QFileDialog.getOpenFileName(self, "Open Markdown File", "",
                                               "Markdown Files (*.md *.markdown *.mkd);;All Files (*)")
 
         if path:
             try:
-                # Detect encoding using chardet
+                # Пытаемся определить кодировку автоматически
                 with open(path, 'rb') as f:
                     raw = f.read()
-                detected = chardet.detect(raw)
-                encoding = detected['encoding'] or 'utf-8'
 
-                with open(path, 'r', encoding=encoding) as f:
-                    text = f.read()
+                detected = chardet.detect(raw)
+                self.current_encoding = detected['encoding'] or 'utf-8'
+
+                # Проверяем, поддерживается ли кодировка
+                supported_encodings = [enc for enc in self.encoding_actions.keys()]
+                if self.current_encoding.lower() not in [e.lower() for e in supported_encodings]:
+                    self.current_encoding = 'utf-8'
+
+                # Устанавливаем соответствующую отметку в меню
+                for enc, action in self.encoding_actions.items():
+                    action.setChecked(enc.lower() == self.current_encoding.lower())
+
+                # Читаем с определенной кодировки
+                text = raw.decode(self.current_encoding, errors='replace')
 
                 self.editor.setPlainText(text)
                 self.current_file = path
                 self.setWindowTitle(f"Markdown Editor - {path}")
-                self.statusBar().showMessage(f"Opened {path} [{encoding}]", 5000)
+                self.statusBar().showMessage(f"Opened {path} [{self.current_encoding}]", 5000)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to open file: {str(e)}")
 
     def save_file(self):
-        """Save the current file"""
+        """Save the current file with current encoding"""
         if self.current_file:
             try:
-                with open(self.current_file, 'w', encoding='utf-8') as f:
-                    f.write(self.editor.toPlainText())
+                # Сохраняем в текущей кодировке
+                with open(self.current_file, 'wb') as f:
+                    text = self.editor.toPlainText()
+                    f.write(text.encode(self.current_encoding, errors='replace'))
+
                 self.editor.document().setModified(False)
-                self.statusBar().showMessage(f"Saved {self.current_file}", 3000)
+                self.statusBar().showMessage(f"Saved {self.current_file} [{self.current_encoding}]", 3000)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save file: {str(e)}")
         else:
@@ -545,7 +615,9 @@ class MarkdownEditor(QMainWindow):
                           "<li>Support for various encodings</li>"
                           "<li>Customizable interface</li>"
                           "</ul>"
-                          "<p>Version 1.0</p>")
+                          "<p>Version 0.0.2</p>"
+                          "<p>Developer - alexsevas</p>"
+                          "<p>mailto - a1exsevas@yandex.ru</p>")
 
     def closeEvent(self, event):
         """Handle window close event"""
@@ -561,7 +633,6 @@ class MarkdownEditor(QMainWindow):
                 return
 
         event.accept()
-
 
 
 if __name__ == "__main__":
