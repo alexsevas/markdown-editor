@@ -1,11 +1,13 @@
+#v0.0.5
+
 # conda activate allpy311
 # pip install PyQt5 PyQtWebEngine markdown chardet
 
 
 # Подавление предупреждений о deprecated sipPyTypeDict
 import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*sipPyTypeDict.*")
 
+warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*sipPyTypeDict.*")
 
 import sys
 import re
@@ -327,6 +329,13 @@ class MarkdownEditor(QMainWindow):
         # Защищаем LaTeX формулы от обработки Markdown
         latex_blocks = []
 
+        # Сохраняем display math с \[ ... \]
+        def save_bracket_display_math(match):
+            latex_blocks.append(('display', match.group(1)))
+            return f'LATEX_DISPLAY_{len(latex_blocks) - 1}_PLACEHOLDER'
+
+        md_text = re.sub(r'\\\[(.*?)\\\]', save_bracket_display_math, md_text, flags=re.DOTALL)
+
         # Сохраняем display math ($$...$$)
         def save_display_math(match):
             latex_blocks.append(('display', match.group(1)))
@@ -334,12 +343,54 @@ class MarkdownEditor(QMainWindow):
 
         md_text = re.sub(r'\$\$(.*?)\$\$', save_display_math, md_text, flags=re.DOTALL)
 
+        # Сохраняем inline math с \( ... \)
+        def save_paren_inline_math(match):
+            latex_blocks.append(('inline', match.group(1)))
+            return f'LATEX_INLINE_{len(latex_blocks) - 1}_PLACEHOLDER'
+
+        md_text = re.sub(r'\\\((.*?)\\\)', save_paren_inline_math, md_text, flags=re.DOTALL)
+
         # Сохраняем inline math ($...$)
         def save_inline_math(match):
             latex_blocks.append(('inline', match.group(1)))
             return f'LATEX_INLINE_{len(latex_blocks) - 1}_PLACEHOLDER'
 
         md_text = re.sub(r'\$([^\$\n]+?)\$', save_inline_math, md_text)
+
+        # Сохраняем одиночные LaTeX команды (без обрамления)
+        # Паттерн для распространенных LaTeX команд
+        latex_commands = [
+            r'\\text\{[^}]+\}',
+            r'\\frac\{[^}]+\}\{[^}]+\}',
+            r'\\frac\{[^}]+\}',
+            r'\\sqrt\{[^}]+\}',
+            r'\\vec\{[^}]+\}',
+            r'\\overrightarrow\{[^}]+\}',
+            r'\\overleftarrow\{[^}]+\}',
+            r'\\overline\{[^}]+\}',
+            r'\\underline\{[^}]+\}',
+            r'\\hat\{[^}]+\}',
+            r'\\bar\{[^}]+\}',
+            r'\\tilde\{[^}]+\}',
+            r'\\boxed\{[^}]+\}',
+            r'\\mathbf\{[^}]+\}',
+            r'\\mathrm\{[^}]+\}',
+            r'\\mathit\{[^}]+\}',
+            r'\\mathcal\{[^}]+\}',
+            r'\\sum_\{[^}]+\}\^\{[^}]+\}',
+            r'\\int_\{[^}]+\}\^\{[^}]+\}',
+            r'\\prod_\{[^}]+\}\^\{[^}]+\}',
+            r'\\lim_\{[^}]+\}',
+            r'\\[a-zA-Z]+',  # Любые другие LaTeX команды
+        ]
+
+        def save_latex_command(match):
+            latex_blocks.append(('inline', match.group(0)))
+            return f'LATEX_INLINE_{len(latex_blocks) - 1}_PLACEHOLDER'
+
+        # Объединяем все паттерны и ищем LaTeX команды
+        combined_pattern = '|'.join(latex_commands)
+        md_text = re.sub(combined_pattern, save_latex_command, md_text)
 
         # Конвертируем Markdown в HTML
         html = markdown.markdown(md_text,
@@ -487,13 +538,28 @@ class MarkdownEditor(QMainWindow):
     <script>
         window.MathJax = {{
             tex: {{
-                inlineMath: [['$', '$']],
-                displayMath: [['$$$', '$$$']],
+                inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
+                displayMath: [['$$$', '$$$'], ['\\\\[', '\\\\]']],
                 processEscapes: true,
-                processEnvironments: true
+                processEnvironments: true,
+                packages: {{'[+]': ['ams', 'newcommand', 'configmacros', 'action', 'bbox', 'boldsymbol', 'braket', 'cancel', 'color', 'enclose', 'extpfeil', 'html', 'mhchem', 'unicode', 'verb']}},
+                tags: 'ams',
+                macros: {{
+                    implies: '\\\\Rightarrow',
+                    iff: '\\\\Leftrightarrow'
+                }}
             }},
             options: {{
-                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea'],
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }},
+            startup: {{
+                pageReady: () => {{
+                    return MathJax.startup.defaultPageReady().then(() => {{
+                        console.log('MathJax loaded and ready');
+                    }});
+                }}
             }}
         }};
     </script>
@@ -675,11 +741,12 @@ class MarkdownEditor(QMainWindow):
                           "<ul>"
                           "<li>Real-time preview</li>"
                           "<li>Markdown syntax highlighting</li>"
-                          "<li>LaTeX formula rendering (inline: $...$ and display: $$...$$)</li>"
+                          "<li>LaTeX formula rendering:</li>"
+                          "(inline: $...$ and display: $$...$$)"
                           "<li>Support for various encodings</li>"
                           "<li>Customizable interface</li>"
                           "</ul>"
-                          "<p>Version 0.0.4</p>"
+                          "<p>Version 0.0.5</p>"
                           "<p>Developer - alexsevas</p>"
                           "<p>mailto - a1exsevas@yandex.ru</p>")
 
