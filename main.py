@@ -1,4 +1,4 @@
-#v0.0.5
+#v0.0.6
 
 # conda activate allpy311
 # pip install PyQt5 PyQtWebEngine markdown chardet
@@ -324,6 +324,62 @@ class MarkdownEditor(QMainWindow):
         html = self.markdown_to_html(md_text)
         self.preview.setHtml(html, QUrl(""))
 
+    def find_matching_brace(self, text, start_pos):
+        """Находит соответствующую закрывающую скобку с учетом вложенности"""
+        count = 1
+        pos = start_pos + 1
+        while pos < len(text) and count > 0:
+            if text[pos] == '{':
+                count += 1
+            elif text[pos] == '}':
+                count -= 1
+            pos += 1
+        return pos if count == 0 else -1
+
+    def extract_latex_commands(self, text):
+        """Извлекает LaTeX команды с правильной обработкой вложенных скобок"""
+        result = []
+        i = 0
+        while i < len(text):
+            if text[i:i + 1] == '\\' and i + 1 < len(text) and text[i + 1].isalpha():
+                # Нашли LaTeX команду
+                cmd_start = i
+                i += 1
+                # Читаем имя команды
+                while i < len(text) and text[i].isalpha():
+                    i += 1
+
+                # Проверяем, есть ли аргументы
+                args_end = i
+                while i < len(text) and text[i] in ' \t':
+                    i += 1
+
+                # Собираем все аргументы команды
+                while i < len(text) and text[i] in '{[':
+                    if text[i] == '{':
+                        end = self.find_matching_brace(text, i)
+                        if end > 0:
+                            args_end = end
+                            i = end
+                        else:
+                            break
+                    elif text[i] == '[':
+                        # Опциональный аргумент
+                        end = text.find(']', i)
+                        if end > 0:
+                            args_end = end + 1
+                            i = end + 1
+                        else:
+                            break
+                    # Пропускаем пробелы между аргументами
+                    while i < len(text) and text[i] in ' \t':
+                        i += 1
+
+                result.append((cmd_start, args_end, text[cmd_start:args_end]))
+            else:
+                i += 1
+        return result
+
     def markdown_to_html(self, md_text):
         """Конвертация Markdown в HTML с поддержкой LaTeX"""
         # Защищаем LaTeX формулы от обработки Markdown
@@ -357,40 +413,14 @@ class MarkdownEditor(QMainWindow):
 
         md_text = re.sub(r'\$([^\$\n]+?)\$', save_inline_math, md_text)
 
-        # Сохраняем одиночные LaTeX команды (без обрамления)
-        # Паттерн для распространенных LaTeX команд
-        latex_commands = [
-            r'\\text\{[^}]+\}',
-            r'\\frac\{[^}]+\}\{[^}]+\}',
-            r'\\frac\{[^}]+\}',
-            r'\\sqrt\{[^}]+\}',
-            r'\\vec\{[^}]+\}',
-            r'\\overrightarrow\{[^}]+\}',
-            r'\\overleftarrow\{[^}]+\}',
-            r'\\overline\{[^}]+\}',
-            r'\\underline\{[^}]+\}',
-            r'\\hat\{[^}]+\}',
-            r'\\bar\{[^}]+\}',
-            r'\\tilde\{[^}]+\}',
-            r'\\boxed\{[^}]+\}',
-            r'\\mathbf\{[^}]+\}',
-            r'\\mathrm\{[^}]+\}',
-            r'\\mathit\{[^}]+\}',
-            r'\\mathcal\{[^}]+\}',
-            r'\\sum_\{[^}]+\}\^\{[^}]+\}',
-            r'\\int_\{[^}]+\}\^\{[^}]+\}',
-            r'\\prod_\{[^}]+\}\^\{[^}]+\}',
-            r'\\lim_\{[^}]+\}',
-            r'\\[a-zA-Z]+',  # Любые другие LaTeX команды
-        ]
+        # Сохраняем одиночные LaTeX команды с правильной обработкой вложенных скобок
+        latex_commands = self.extract_latex_commands(md_text)
 
-        def save_latex_command(match):
-            latex_blocks.append(('inline', match.group(0)))
-            return f'LATEX_INLINE_{len(latex_blocks) - 1}_PLACEHOLDER'
-
-        # Объединяем все паттерны и ищем LaTeX команды
-        combined_pattern = '|'.join(latex_commands)
-        md_text = re.sub(combined_pattern, save_latex_command, md_text)
+        # Заменяем команды в обратном порядке, чтобы не сбить индексы
+        for start, end, cmd_text in reversed(latex_commands):
+            latex_blocks.append(('inline', cmd_text))
+            placeholder = f'LATEX_INLINE_{len(latex_blocks) - 1}_PLACEHOLDER'
+            md_text = md_text[:start] + placeholder + md_text[end:]
 
         # Конвертируем Markdown в HTML
         html = markdown.markdown(md_text,
@@ -746,7 +776,7 @@ class MarkdownEditor(QMainWindow):
                           "<li>Support for various encodings</li>"
                           "<li>Customizable interface</li>"
                           "</ul>"
-                          "<p>Version 0.0.5</p>"
+                          "<p>Version 0.0.6</p>"
                           "<p>Developer - alexsevas</p>"
                           "<p>mailto - a1exsevas@yandex.ru</p>")
 
