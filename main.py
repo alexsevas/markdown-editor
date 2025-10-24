@@ -1,4 +1,4 @@
-#v0.0.6
+# v0.0.7
 
 # conda activate allpy311
 # pip install PyQt5 PyQtWebEngine markdown chardet
@@ -15,12 +15,129 @@ import chardet
 import markdown
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QLabel,
                              QVBoxLayout, QSplitter, QTextEdit, QFileDialog,
-                             QMenu, QAction, QMessageBox, QShortcut, QFrame)
+                             QMenu, QAction, QMessageBox, QShortcut, QFrame, QPlainTextEdit)
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QUrl, QTimer, Qt, QSettings
+from PyQt5.QtCore import QUrl, QTimer, Qt, QSettings, QSize, QRect
 from PyQt5.QtGui import (QFont, QColor, QTextCharFormat, QSyntaxHighlighter,
-                         QTextCursor, QKeySequence, QPalette)
+                         QTextCursor, QKeySequence, QPalette, QPainter, QTextFormat)
 from PyQt5.QtWebChannel import QWebChannel
+
+
+class LineNumberArea(QWidget):
+    """Виджет для отображения номеров строк"""
+
+    def __init__(self, editor):
+        super().__init__(editor)
+        self.editor = editor
+
+    def sizeHint(self):
+        return QSize(self.editor.line_number_area_width(), 0)
+
+    def paintEvent(self, event):
+        self.editor.line_number_area_paint_event(event)
+
+
+class TextEditWithLineNumbers(QPlainTextEdit):
+    """Текстовый редактор с номерами строк"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.line_number_area = LineNumberArea(self)
+
+        self.blockCountChanged.connect(self.update_line_number_area_width)
+        self.updateRequest.connect(self.update_line_number_area)
+        self.cursorPositionChanged.connect(self.highlight_current_line)
+
+        self.update_line_number_area_width(0)
+        self.highlight_current_line()
+
+    def line_number_area_width(self):
+        """Вычисляет ширину области для номеров строк"""
+        digits = len(str(max(1, self.blockCount())))
+        space = 10 + self.fontMetrics().horizontalAdvance('9') * digits
+        return space
+
+    def update_line_number_area_width(self, _):
+        """Обновляет отступ для номеров строк"""
+        self.setViewportMargins(self.line_number_area_width(), 0, 0, 0)
+
+    def update_line_number_area(self, rect, dy):
+        """Обновляет область номеров строк при прокрутке"""
+        if dy:
+            self.line_number_area.scroll(0, dy)
+        else:
+            self.line_number_area.update(0, rect.y(), self.line_number_area.width(), rect.height())
+
+        if rect.contains(self.viewport().rect()):
+            self.update_line_number_area_width(0)
+
+    def resizeEvent(self, event):
+        """Обрабатывает изменение размера редактора"""
+        super().resizeEvent(event)
+
+        cr = self.contentsRect()
+        self.line_number_area.setGeometry(QRect(cr.left(), cr.top(),
+                                                self.line_number_area_width(), cr.height()))
+
+    def line_number_area_paint_event(self, event):
+        """Отрисовывает номера строк"""
+        painter = QPainter(self.line_number_area)
+
+        # Используем тот же шрифт, что и в редакторе
+        painter.setFont(self.font())
+
+        # Фон для области номеров строк
+        if self.palette().color(QPalette.Base).lightness() > 128:
+            # Светлая тема
+            painter.fillRect(event.rect(), QColor(240, 240, 240))
+            text_color = QColor(100, 100, 100)
+        else:
+            # Темная тема
+            painter.fillRect(event.rect(), QColor(40, 40, 40))
+            text_color = QColor(150, 150, 150)
+
+        block = self.firstVisibleBlock()
+        block_number = block.blockNumber()
+        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        bottom = top + int(self.blockBoundingRect(block).height())
+
+        # Рисуем номера строк
+        while block.isValid() and top <= event.rect().bottom():
+            if block.isVisible() and bottom >= event.rect().top():
+                number = str(block_number + 1)
+                painter.setPen(text_color)
+                painter.drawText(0, top, self.line_number_area.width() - 5,
+                                 self.fontMetrics().height(),
+                                 Qt.AlignRight | Qt.AlignVCenter, number)
+
+            block = block.next()
+            top = bottom
+            bottom = top + int(self.blockBoundingRect(block).height())
+            block_number += 1
+
+    def highlight_current_line(self):
+        """Подсвечивает текущую строку"""
+        extra_selections = []
+
+        if not self.isReadOnly():
+            selection = QTextEdit.ExtraSelection()
+
+            # Цвет подсветки текущей строки
+            if self.palette().color(QPalette.Base).lightness() > 128:
+                # Светлая тема
+                line_color = QColor(255, 255, 200, 100)
+            else:
+                # Темная тема
+                line_color = QColor(60, 60, 60, 100)
+
+            selection.format.setBackground(line_color)
+            selection.format.setProperty(QTextFormat.FullWidthSelection, True)
+            selection.cursor = self.textCursor()
+            selection.cursor.clearSelection()
+            extra_selections.append(selection)
+
+        self.setExtraSelections(extra_selections)
 
 
 class MarkdownHighlighter(QSyntaxHighlighter):
@@ -163,12 +280,13 @@ class MarkdownEditor(QMainWindow):
         editor_layout = QVBoxLayout(editor_container)
         editor_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.editor = QTextEdit()
-        self.editor.setFont(QFont("Segoe UI", 10))
+        self.editor = TextEditWithLineNumbers()
+        self.editor.setFont(QFont("Consolas", 11))  # Моноширинный шрифт как в блокноте
         self.editor.setTabStopDistance(40)
         editor_layout.addWidget(self.editor)
 
-        self.highlighter = MarkdownHighlighter(self.editor.document(), self.dark_mode)
+        # Highlighter отключен - текст отображается как в обычном блокноте
+        # self.highlighter = MarkdownHighlighter(self.editor.document(), self.dark_mode)
 
         self.splitter.addWidget(editor_container)
 
@@ -195,6 +313,10 @@ class MarkdownEditor(QMainWindow):
         self.setup_shortcuts()
 
         self.apply_theme()
+
+        # Синхронизация прокрутки
+        self.sync_scroll_enabled = True
+        self.editor.verticalScrollBar().valueChanged.connect(self.sync_editor_to_preview)
 
         self.render_preview()
 
@@ -323,6 +445,37 @@ class MarkdownEditor(QMainWindow):
         md_text = self.editor.toPlainText()
         html = self.markdown_to_html(md_text)
         self.preview.setHtml(html, QUrl(""))
+        # Синхронизируем прокрутку после рендеринга
+        QTimer.singleShot(100, self.sync_editor_to_preview)
+
+    def sync_editor_to_preview(self):
+        """Синхронизация прокрутки редактора с preview"""
+        if not self.sync_scroll_enabled:
+            return
+
+        # Получаем позицию прокрутки редактора
+        scrollbar = self.editor.verticalScrollBar()
+        if scrollbar.maximum() == 0:
+            scroll_percent = 0
+        else:
+            scroll_percent = scrollbar.value() / scrollbar.maximum()
+
+        # Прокручиваем preview на тот же процент
+        js_code = f"window.scrollTo(0, document.body.scrollHeight * {scroll_percent});"
+        self.preview.page().runJavaScript(js_code)
+
+    def sync_preview_to_editor(self, scroll_percent):
+        """Синхронизация прокрутки preview с редактором"""
+        if not self.sync_scroll_enabled:
+            return
+
+        scrollbar = self.editor.verticalScrollBar()
+        new_value = int(scrollbar.maximum() * scroll_percent)
+
+        # Временно отключаем синхронизацию, чтобы избежать рекурсии
+        self.sync_scroll_enabled = False
+        scrollbar.setValue(new_value)
+        self.sync_scroll_enabled = True
 
     def find_matching_brace(self, text, start_pos):
         """Находит соответствующую закрывающую скобку с учетом вложенности"""
@@ -452,35 +605,40 @@ class MarkdownEditor(QMainWindow):
         if self.dark_mode:
             dark_styles = """
             body {
-                background-color: #2b2b2b;
-                color: #e0e0e0;
+                background-color: #2b2b2b !important;
+                color: #e0e0e0 !important;
             }
             h1, h2, h3, h4, h5, h6 {
-                color: #64b4ff;
-                border-bottom: 1px solid #444;
+                color: #64b4ff !important;
+                border-bottom: 1px solid #444 !important;
             }
             code {
-                background-color: #333333;
-                color: #ff9ea8;
+                background-color: #1a1a1a !important;
+                color: #ff9ea8 !important;
             }
             pre {
-                background-color: #252525;
+                background-color: #1a1a1a !important;
+                margin: 0 !important;
+                padding: 10px !important;
             }
             pre code {
-                color: #e0e0e0;
+                background-color: #1a1a1a !important;
+                color: #e0e0e0 !important;
             }
             blockquote {
-                border-left: 4px solid #64b4ff;
-                background-color: #333333;
+                border-left: 4px solid #64b4ff !important;
+                background-color: #333333 !important;
             }
             .highlight {
-                background-color: #252525;
+                background-color: #1a1a1a !important;
+                margin: 0 !important;
+                padding: 10px !important;
             }
             table, th, td {
-                border-color: #555;
+                border-color: #555 !important;
             }
             th {
-                background-color: #333;
+                background-color: #333 !important;
             }
             """
 
@@ -522,18 +680,18 @@ class MarkdownEditor(QMainWindow):
             margin: 20px 0;
         }}
         code {{
-            background-color: #f5f5f5;
+            background-color: #f0f0f0;
             padding: 2px 4px;
             border-radius: 4px;
             font-family: Consolas, "Courier New", monospace;
             color: #d73a49;
         }}
         pre {{
-            background-color: #f5f5f5;
+            background-color: #f0f0f0;
             border-radius: 4px;
-            padding: 15px;
+            padding: 10px;
             overflow: auto;
-            margin: 20px 0;
+            margin: 0;
         }}
         pre code {{
             background: none;
@@ -558,11 +716,11 @@ class MarkdownEditor(QMainWindow):
         li {{ margin-bottom: 8px; }}
         img {{ max-width: 100%; }}
         .highlight {{
-            background-color: #f5f5f5;
+            background-color: #f0f0f0;
             border-radius: 4px;
-            padding: 15px;
+            padding: 10px;
             overflow: auto;
-            margin: 20px 0;
+            margin: 0;
         }}
     </style>
     <script>
@@ -594,6 +752,18 @@ class MarkdownEditor(QMainWindow):
         }};
     </script>
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+    <script>
+        // Синхронизация прокрутки preview с редактором
+        let scrollTimeout;
+        window.addEventListener('scroll', function() {{
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(function() {{
+                const scrollPercent = window.scrollY / (document.body.scrollHeight - window.innerHeight);
+                // Отправляем процент прокрутки обратно в Qt (если нужно)
+                console.log('Preview scroll:', scrollPercent);
+            }}, 100);
+        }});
+    </script>
 </head>
 <body>
     {html}
@@ -616,19 +786,69 @@ class MarkdownEditor(QMainWindow):
             palette.setColor(QPalette.ButtonText, Qt.white)
             palette.setColor(QPalette.BrightText, QColor(255, 100, 100))
             palette.setColor(QPalette.Highlight, QColor(142, 45, 197))
-            palette.setColor(QPalette.HighlightedText, Qt.black)
+            palette.setColor(QPalette.HighlightedText, Qt.white)
+
+            # Цвета для меню
+            palette.setColor(QPalette.Light, QColor(60, 60, 60))
+            palette.setColor(QPalette.Midlight, QColor(50, 50, 50))
+            palette.setColor(QPalette.Dark, QColor(35, 35, 35))
+            palette.setColor(QPalette.Mid, QColor(40, 40, 40))
+            palette.setColor(QPalette.Shadow, QColor(20, 20, 20))
 
             app.setPalette(palette)
 
-            self.editor.setStyleSheet("""
-                QTextEdit {
-                    background-color: #2b2b2b;
-                    color: #e0e0e0;
+            # Дополнительные стили для меню
+            self.setStyleSheet("""
+                QMenuBar {
+                    background-color: #2d2d2d;
+                    color: #ffffff;
+                    border-bottom: 1px solid #555555;
+                }
+                QMenuBar::item {
+                    background-color: transparent;
+                    color: #ffffff;
+                    padding: 4px 10px;
+                }
+                QMenuBar::item:selected {
+                    background-color: #3d3d3d;
+                    color: #ffffff;
+                }
+                QMenuBar::item:pressed {
+                    background-color: #4d4d4d;
+                }
+                QMenu {
+                    background-color: #2d2d2d;
+                    color: #ffffff;
                     border: 1px solid #555555;
+                }
+                QMenu::item {
+                    background-color: transparent;
+                    color: #ffffff;
+                    padding: 5px 25px 5px 20px;
+                }
+                QMenu::item:selected {
+                    background-color: #3d3d3d;
+                    color: #ffffff;
+                }
+                QMenu::separator {
+                    height: 1px;
+                    background-color: #555555;
+                    margin: 5px 0px;
+                }
+                QStatusBar {
+                    background-color: #2d2d2d;
+                    color: #ffffff;
                 }
             """)
 
-            self.highlighter = MarkdownHighlighter(self.editor.document(), dark_mode=True)
+            self.editor.setStyleSheet("""
+                QPlainTextEdit {
+                    background-color: #2b2b2b;
+                    color: #e0e0e0;
+                    border: 1px solid #555555;
+                    font-family: Consolas, "Courier New", monospace;
+                }
+            """)
 
         else:
             app.setStyle("Fusion")
@@ -647,13 +867,57 @@ class MarkdownEditor(QMainWindow):
             palette.setColor(QPalette.HighlightedText, QColor(255, 255, 255))
 
             app.setPalette(palette)
-            self.editor.setStyleSheet("")
-            self.highlighter = MarkdownHighlighter(self.editor.document(), dark_mode=False)
+
+            # Стили для светлой темы
+            self.setStyleSheet("""
+                QMenuBar {
+                    background-color: #f0f0f0;
+                    color: #000000;
+                }
+                QMenuBar::item {
+                    background-color: transparent;
+                    color: #000000;
+                    padding: 4px 10px;
+                }
+                QMenuBar::item:selected {
+                    background-color: #e0e0e0;
+                }
+                QMenu {
+                    background-color: #ffffff;
+                    color: #000000;
+                    border: 1px solid #cccccc;
+                }
+                QMenu::item {
+                    background-color: transparent;
+                    color: #000000;
+                    padding: 5px 25px 5px 20px;
+                }
+                QMenu::item:selected {
+                    background-color: #e0e0e0;
+                }
+                QMenu::separator {
+                    height: 1px;
+                    background-color: #cccccc;
+                    margin: 5px 0px;
+                }
+                QStatusBar {
+                    background-color: #f0f0f0;
+                    color: #000000;
+                }
+            """)
+
+            self.editor.setStyleSheet("""
+                QPlainTextEdit {
+                    font-family: Consolas, "Courier New", monospace;
+                }
+            """)
 
     def toggle_dark_mode(self, checked):
         self.dark_mode = checked
         self.settings.setValue("dark_mode", checked)
         self.apply_theme()
+        self.editor.highlight_current_line()  # Обновляем подсветку текущей строки
+        self.editor.line_number_area.update()  # Обновляем номера строк
         self.render_preview()
         self.statusBar().showMessage("Dark Mode ON" if checked else "Dark Mode OFF", 2000)
 
@@ -776,7 +1040,7 @@ class MarkdownEditor(QMainWindow):
                           "<li>Support for various encodings</li>"
                           "<li>Customizable interface</li>"
                           "</ul>"
-                          "<p>Version 0.0.6</p>"
+                          "<p>Version 0.0.7</p>"
                           "<p>Developer - alexsevas</p>"
                           "<p>mailto - a1exsevas@yandex.ru</p>")
 
