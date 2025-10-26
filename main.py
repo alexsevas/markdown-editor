@@ -1,7 +1,8 @@
-# v0.0.8
+# v0.0.9
 
 # conda activate allpy311
-# pip install PyQt5 PyQtWebEngine markdown chardet
+# pip install PyQt5 PyQtWebEngine markdown chardet Pygments
+
 
 # Подавление предупреждений о deprecated sipPyTypeDict
 import warnings
@@ -9,6 +10,7 @@ import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*sipPyTypeDict.*")
 
 import sys
+import os
 import re
 import chardet
 import markdown
@@ -443,7 +445,14 @@ class MarkdownEditor(QMainWindow):
     def render_preview(self):
         md_text = self.editor.toPlainText()
         html = self.markdown_to_html(md_text)
-        self.preview.setHtml(html, QUrl(""))
+
+        # Устанавливаем базовый URL для загрузки локальных изображений
+        if self.current_file:
+            base_url = QUrl.fromLocalFile(os.path.dirname(os.path.abspath(self.current_file)) + os.sep)
+        else:
+            base_url = QUrl.fromLocalFile(os.getcwd() + os.sep)
+
+        self.preview.setHtml(html, base_url)
         # Синхронизируем прокрутку после рендеринга
         QTimer.singleShot(100, self.sync_editor_to_preview)
 
@@ -724,9 +733,9 @@ class MarkdownEditor(QMainWindow):
                         "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 800px;
-            margin: 20px auto;
-            padding: 0 20px;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
         }}
         {dark_styles}
         h1, h2, h3, h4, h5, h6 {{
@@ -785,7 +794,12 @@ class MarkdownEditor(QMainWindow):
             margin: 16px 0;
         }}
         li {{ margin-bottom: 8px; }}
-        img {{ max-width: 100%; }}
+        img {{ 
+            max-width: 100%; 
+            height: auto;
+            display: block;
+            margin: 10px 0;
+        }}
         .highlight {{
             background-color: #f0f0f0;
             border-radius: 4px;
@@ -1181,7 +1195,7 @@ class MarkdownEditor(QMainWindow):
                           "<li>Support for various encodings</li>"
                           "<li>Customizable interface</li>"
                           "</ul>"
-                          "<p>Version 0.0.8</p>"
+                          "<p>Version 0.0.9</p>"
                           "<p>Developer - alexsevas</p>"
                           "<p>mailto - a1exsevas@yandex.ru</p>")
 
