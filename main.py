@@ -1,8 +1,7 @@
-# v0.0.7
+# v0.0.8
 
 # conda activate allpy311
 # pip install PyQt5 PyQtWebEngine markdown chardet
-
 
 # Подавление предупреждений о deprecated sipPyTypeDict
 import warnings
@@ -587,7 +586,9 @@ class MarkdownEditor(QMainWindow):
                                  extension_configs={
                                      'codehilite': {
                                          'css_class': 'highlight',
-                                         'guess_lang': False,
+                                         'guess_lang': True,  # Автоматическое определение языка
+                                         'linenums': False,  # Без номеров строк в коде
+                                         'use_pygments': True  # Использовать Pygments для подсветки
                                      }
                                  })
 
@@ -640,6 +641,76 @@ class MarkdownEditor(QMainWindow):
             th {
                 background-color: #333 !important;
             }
+
+            /* Подсветка синтаксиса для темной темы */
+            .highlight .hll { background-color: #404040 !important }
+            .highlight .c { color: #6a9955 !important; font-style: italic } /* Комментарии */
+            .highlight .err { color: #f44747 !important } /* Ошибки */
+            .highlight .k { color: #569cd6 !important; font-weight: bold } /* Ключевые слова */
+            .highlight .o { color: #d4d4d4 !important } /* Операторы */
+            .highlight .ch { color: #6a9955 !important; font-style: italic } /* Комментарии */
+            .highlight .cm { color: #6a9955 !important; font-style: italic } /* Многострочные комментарии */
+            .highlight .cp { color: #9b9b9b !important } /* Препроцессор */
+            .highlight .cpf { color: #6a9955 !important; font-style: italic } /* Комментарии препроцессора */
+            .highlight .c1 { color: #6a9955 !important; font-style: italic } /* Однострочные комментарии */
+            .highlight .cs { color: #6a9955 !important; font-style: italic } /* Специальные комментарии */
+            .highlight .gd { color: #f44747 !important } /* Удаленное */
+            .highlight .ge { font-style: italic !important } /* Курсив */
+            .highlight .gr { color: #f44747 !important } /* Ошибки */
+            .highlight .gh { color: #569cd6 !important; font-weight: bold } /* Заголовки */
+            .highlight .gi { color: #4ec9b0 !important } /* Добавленное */
+            .highlight .go { color: #808080 !important } /* Вывод */
+            .highlight .gp { color: #569cd6 !important; font-weight: bold } /* Приглашение */
+            .highlight .gs { font-weight: bold !important } /* Жирный */
+            .highlight .gu { color: #c586c0 !important; font-weight: bold } /* Подзаголовки */
+            .highlight .gt { color: #569cd6 !important } /* Трассировка */
+            .highlight .kc { color: #569cd6 !important; font-weight: bold } /* Константы */
+            .highlight .kd { color: #569cd6 !important; font-weight: bold } /* Объявления */
+            .highlight .kn { color: #c586c0 !important; font-weight: bold } /* Namespace */
+            .highlight .kp { color: #569cd6 !important } /* Псевдо */
+            .highlight .kr { color: #569cd6 !important; font-weight: bold } /* Зарезервированные */
+            .highlight .kt { color: #4ec9b0 !important } /* Типы */
+            .highlight .m { color: #b5cea8 !important } /* Числа */
+            .highlight .s { color: #ce9178 !important } /* Строки */
+            .highlight .na { color: #9cdcfe !important } /* Атрибуты */
+            .highlight .nb { color: #dcdcaa !important } /* Встроенные */
+            .highlight .nc { color: #4ec9b0 !important; font-weight: bold } /* Классы */
+            .highlight .no { color: #4fc1ff !important } /* Константы */
+            .highlight .nd { color: #dcdcaa !important } /* Декораторы */
+            .highlight .ni { color: #4fc1ff !important } /* Сущности */
+            .highlight .ne { color: #f44747 !important; font-weight: bold } /* Исключения */
+            .highlight .nf { color: #dcdcaa !important; font-weight: bold } /* Функции */
+            .highlight .nl { color: #4fc1ff !important } /* Метки */
+            .highlight .nn { color: #4ec9b0 !important } /* Пространства имен */
+            .highlight .nt { color: #569cd6 !important } /* Теги */
+            .highlight .nv { color: #9cdcfe !important } /* Переменные */
+            .highlight .ow { color: #569cd6 !important; font-weight: bold } /* Операторы-слова */
+            .highlight .w { color: #d4d4d4 !important } /* Пробелы */
+            .highlight .mb { color: #b5cea8 !important } /* Числа */
+            .highlight .mf { color: #b5cea8 !important } /* Float */
+            .highlight .mh { color: #b5cea8 !important } /* Hex */
+            .highlight .mi { color: #b5cea8 !important } /* Integer */
+            .highlight .mo { color: #b5cea8 !important } /* Octal */
+            .highlight .sa { color: #ce9178 !important } /* Строки */
+            .highlight .sb { color: #ce9178 !important } /* Строки */
+            .highlight .sc { color: #ce9178 !important } /* Символы */
+            .highlight .dl { color: #ce9178 !important } /* Разделители строк */
+            .highlight .sd { color: #6a9955 !important; font-style: italic } /* Docstring */
+            .highlight .s2 { color: #ce9178 !important } /* Двойные кавычки */
+            .highlight .se { color: #d7ba7d !important } /* Escape */
+            .highlight .sh { color: #ce9178 !important } /* Shell */
+            .highlight .si { color: #ce9178 !important } /* Интерполяция */
+            .highlight .sx { color: #ce9178 !important } /* Другие строки */
+            .highlight .sr { color: #d16969 !important } /* Regex */
+            .highlight .s1 { color: #ce9178 !important } /* Одинарные кавычки */
+            .highlight .ss { color: #ce9178 !important } /* Символы */
+            .highlight .bp { color: #dcdcaa !important } /* Встроенные псевдо */
+            .highlight .fm { color: #dcdcaa !important; font-weight: bold } /* Магические функции */
+            .highlight .vc { color: #9cdcfe !important } /* Переменные класса */
+            .highlight .vg { color: #9cdcfe !important } /* Глобальные переменные */
+            .highlight .vi { color: #9cdcfe !important } /* Переменные экземпляра */
+            .highlight .vm { color: #9cdcfe !important } /* Переменные магические */
+            .highlight .il { color: #b5cea8 !important } /* Integer long */
             """
 
         template = f"""<!DOCTYPE html>
@@ -722,6 +793,76 @@ class MarkdownEditor(QMainWindow):
             overflow: auto;
             margin: 0;
         }}
+
+        /* Подсветка синтаксиса для светлой темы */
+        .highlight .hll {{ background-color: #ffffcc }}
+        .highlight .c {{ color: #008000; font-style: italic }} /* Комментарии */
+        .highlight .err {{ border: 1px solid #FF0000 }} /* Ошибки */
+        .highlight .k {{ color: #0000ff; font-weight: bold }} /* Ключевые слова */
+        .highlight .o {{ color: #666666 }} /* Операторы */
+        .highlight .ch {{ color: #008000; font-style: italic }} /* Комментарии */
+        .highlight .cm {{ color: #008000; font-style: italic }} /* Многострочные комментарии */
+        .highlight .cp {{ color: #0000ff }} /* Препроцессор */
+        .highlight .cpf {{ color: #008000; font-style: italic }} /* Комментарии препроцессора */
+        .highlight .c1 {{ color: #008000; font-style: italic }} /* Однострочные комментарии */
+        .highlight .cs {{ color: #008000; font-style: italic }} /* Специальные комментарии */
+        .highlight .gd {{ color: #A00000 }} /* Удаленное */
+        .highlight .ge {{ font-style: italic }} /* Курсив */
+        .highlight .gr {{ color: #FF0000 }} /* Ошибки */
+        .highlight .gh {{ color: #000080; font-weight: bold }} /* Заголовки */
+        .highlight .gi {{ color: #00A000 }} /* Добавленное */
+        .highlight .go {{ color: #888888 }} /* Вывод */
+        .highlight .gp {{ color: #000080; font-weight: bold }} /* Приглашение */
+        .highlight .gs {{ font-weight: bold }} /* Жирный */
+        .highlight .gu {{ color: #800080; font-weight: bold }} /* Подзаголовки */
+        .highlight .gt {{ color: #0044DD }} /* Трассировка */
+        .highlight .kc {{ color: #0000ff; font-weight: bold }} /* Константы */
+        .highlight .kd {{ color: #0000ff; font-weight: bold }} /* Объявления */
+        .highlight .kn {{ color: #0000ff; font-weight: bold }} /* Namespace */
+        .highlight .kp {{ color: #0000ff }} /* Псевдо */
+        .highlight .kr {{ color: #0000ff; font-weight: bold }} /* Зарезервированные */
+        .highlight .kt {{ color: #2b91af }} /* Типы */
+        .highlight .m {{ color: #009999 }} /* Числа */
+        .highlight .s {{ color: #a31515 }} /* Строки */
+        .highlight .na {{ color: #ff0000 }} /* Атрибуты */
+        .highlight .nb {{ color: #0000ff }} /* Встроенные */
+        .highlight .nc {{ color: #2b91af; font-weight: bold }} /* Классы */
+        .highlight .no {{ color: #880000 }} /* Константы */
+        .highlight .nd {{ color: #808080 }} /* Декораторы */
+        .highlight .ni {{ color: #880000 }} /* Сущности */
+        .highlight .ne {{ color: #CC0000; font-weight: bold }} /* Исключения */
+        .highlight .nf {{ color: #000000; font-weight: bold }} /* Функции */
+        .highlight .nl {{ color: #880000 }} /* Метки */
+        .highlight .nn {{ color: #0000ff }} /* Пространства имен */
+        .highlight .nt {{ color: #800000 }} /* Теги */
+        .highlight .nv {{ color: #000000 }} /* Переменные */
+        .highlight .ow {{ color: #0000ff; font-weight: bold }} /* Операторы-слова */
+        .highlight .w {{ color: #bbbbbb }} /* Пробелы */
+        .highlight .mb {{ color: #009999 }} /* Числа */
+        .highlight .mf {{ color: #009999 }} /* Float */
+        .highlight .mh {{ color: #009999 }} /* Hex */
+        .highlight .mi {{ color: #009999 }} /* Integer */
+        .highlight .mo {{ color: #009999 }} /* Octal */
+        .highlight .sa {{ color: #a31515 }} /* Строки */
+        .highlight .sb {{ color: #a31515 }} /* Строки */
+        .highlight .sc {{ color: #a31515 }} /* Символы */
+        .highlight .dl {{ color: #a31515 }} /* Разделители строк */
+        .highlight .sd {{ color: #a31515; font-style: italic }} /* Docstring */
+        .highlight .s2 {{ color: #a31515 }} /* Двойные кавычки */
+        .highlight .se {{ color: #a31515 }} /* Escape */
+        .highlight .sh {{ color: #a31515 }} /* Shell */
+        .highlight .si {{ color: #a31515 }} /* Интерполяция */
+        .highlight .sx {{ color: #a31515 }} /* Другие строки */
+        .highlight .sr {{ color: #a31515 }} /* Regex */
+        .highlight .s1 {{ color: #a31515 }} /* Одинарные кавычки */
+        .highlight .ss {{ color: #a31515 }} /* Символы */
+        .highlight .bp {{ color: #0000ff }} /* Встроенные псевдо */
+        .highlight .fm {{ color: #000000; font-weight: bold }} /* Магические функции */
+        .highlight .vc {{ color: #000000 }} /* Переменные класса */
+        .highlight .vg {{ color: #000000 }} /* Глобальные переменные */
+        .highlight .vi {{ color: #000000 }} /* Переменные экземпляра */
+        .highlight .vm {{ color: #000000 }} /* Переменные магические */
+        .highlight .il {{ color: #009999 }} /* Integer long */
     </style>
     <script>
         window.MathJax = {{
@@ -1040,7 +1181,7 @@ class MarkdownEditor(QMainWindow):
                           "<li>Support for various encodings</li>"
                           "<li>Customizable interface</li>"
                           "</ul>"
-                          "<p>Version 0.0.7</p>"
+                          "<p>Version 0.0.8</p>"
                           "<p>Developer - alexsevas</p>"
                           "<p>mailto - a1exsevas@yandex.ru</p>")
 
