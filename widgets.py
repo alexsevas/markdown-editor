@@ -15,20 +15,7 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import QUrl, QTimer, Qt, QSettings, QSize, QRect
 from PyQt5.QtGui import (QFont, QColor, QTextCharFormat, QSyntaxHighlighter,
                          QTextCursor, QKeySequence, QPalette, QPainter, QTextFormat)
-
-
-class LineNumberArea(QWidget):
-    """Виджет для отображения номеров строк"""
-
-    def __init__(self, editor):
-        super().__init__(editor)
-        self.editor = editor
-
-    def sizeHint(self):
-        return QSize(self.editor.line_number_area_width(), 0)
-
-    def paintEvent(self, event):
-        self.editor.line_number_area_paint_event(event)
+from PyQt5.QtWebChannel import QWebChannel
 
 
 class TextEditWithLineNumbers(QPlainTextEdit):
@@ -132,3 +119,17 @@ class TextEditWithLineNumbers(QPlainTextEdit):
             extra_selections.append(selection)
 
         self.setExtraSelections(extra_selections)
+
+
+class LineNumberArea(QWidget):
+    """Виджет для отображения номеров строк"""
+
+    def __init__(self, editor):
+        super().__init__(editor)
+        self.editor = editor
+
+    def sizeHint(self):
+        return QSize(self.editor.line_number_area_width(), 0)
+
+    def paintEvent(self, event):
+        self.editor.line_number_area_paint_event(event)
