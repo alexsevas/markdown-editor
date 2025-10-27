@@ -15,15 +15,19 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import QUrl, QTimer, Qt, QSettings, QSize, QRect
 from PyQt5.QtGui import (QFont, QColor, QTextCharFormat, QSyntaxHighlighter,
                          QTextCursor, QKeySequence, QPalette, QPainter, QTextFormat)
+from PyQt5.QtWebChannel import QWebChannel
 
 # Импортируем наши модули
 from widgets import TextEditWithLineNumbers
 from highlighter import MarkdownHighlighter
 
 
+
 class MarkdownEditor(QMainWindow):
-    def __init__(self):
+    def __init__(self, app):
         super().__init__()
+        self.app = app
+        #self.apply_theme()
         self.settings = QSettings("Markdown", "Editor")
         self.dark_mode = self.settings.value("dark_mode", False, type=bool)
         self.current_encoding = self.settings.value("encoding", "utf-8", type=str)
@@ -310,12 +314,12 @@ class MarkdownEditor(QMainWindow):
         # Защищаем LaTeX формулы от обработки Markdown
         latex_blocks = []
 
-        # Сохраняем display math с \\[ ... \\]
+        # Сохраняем display math с \[ ... \]
         def save_bracket_display_math(match):
             latex_blocks.append(('display', match.group(1)))
             return f'LATEX_DISPLAY_{len(latex_blocks) - 1}_PLACEHOLDER'
 
-        md_text = re.sub(r'\\\\\\[(.*?)\\\\\\]', save_bracket_display_math, md_text, flags=re.DOTALL)
+        md_text = re.sub(r'\\\[(.*?)\\\]', save_bracket_display_math, md_text, flags=re.DOTALL)
 
         # Сохраняем display math ($$...$$)
         def save_display_math(match):
@@ -324,12 +328,12 @@ class MarkdownEditor(QMainWindow):
 
         md_text = re.sub(r'\$\$(.*?)\$\$', save_display_math, md_text, flags=re.DOTALL)
 
-        # Сохраняем inline math с \\( ... \\)
+        # Сохраняем inline math с \( ... \)
         def save_paren_inline_math(match):
             latex_blocks.append(('inline', match.group(1)))
             return f'LATEX_INLINE_{len(latex_blocks) - 1}_PLACEHOLDER'
 
-        md_text = re.sub(r'\\\\\\((.*?)\\\\\\)', save_paren_inline_math, md_text, flags=re.DOTALL)
+        md_text = re.sub(r'\\\((.*?)\\\)', save_paren_inline_math, md_text, flags=re.DOTALL)
 
         # Сохраняем inline math ($...$)
         def save_inline_math(match):
@@ -369,7 +373,7 @@ class MarkdownEditor(QMainWindow):
         for i, (math_type, content) in enumerate(latex_blocks):
             if math_type == 'display':
                 placeholder = f'LATEX_DISPLAY_{i}_PLACEHOLDER'
-                html = html.replace(placeholder, f'$${content}$$')  # Используем $$ для display math
+                html = html.replace(placeholder, f'$$${content}$$$')
             else:
                 placeholder = f'LATEX_INLINE_{i}_PLACEHOLDER'
                 html = html.replace(placeholder, f'${content}$')
@@ -646,7 +650,7 @@ class MarkdownEditor(QMainWindow):
         window.MathJax = {{
             tex: {{
                 inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
-                displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
+                displayMath: [['$$$', '$$$'], ['\\\\[', '\\\\]']],
                 processEscapes: true,
                 processEnvironments: true,
                 packages: {{'[+]': ['ams', 'newcommand', 'configmacros', 'action', 'bbox', 'boldsymbol', 'braket', 'cancel', 'color', 'enclose', 'extpfeil', 'html', 'mhchem', 'unicode', 'verb']}},
@@ -692,6 +696,7 @@ class MarkdownEditor(QMainWindow):
         return template
 
     def apply_theme(self):
+
         if self.dark_mode:
             palette = QPalette()
             palette.setColor(QPalette.Window, QColor(45, 45, 45))
@@ -714,7 +719,7 @@ class MarkdownEditor(QMainWindow):
             palette.setColor(QPalette.Mid, QColor(40, 40, 40))
             palette.setColor(QPalette.Shadow, QColor(20, 20, 20))
 
-            QApplication.instance().setPalette(palette)
+            self.app.setPalette(palette)
 
             # Дополнительные стили для меню
             self.setStyleSheet("""
@@ -770,7 +775,7 @@ class MarkdownEditor(QMainWindow):
             """)
 
         else:
-            QApplication.instance().setStyle("Fusion")
+            self.app.setStyle("Fusion")
             palette = QPalette()
             palette.setColor(QPalette.Window, QColor(240, 240, 240))
             palette.setColor(QPalette.WindowText, QColor(50, 50, 50))
@@ -785,7 +790,7 @@ class MarkdownEditor(QMainWindow):
             palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
             palette.setColor(QPalette.HighlightedText, QColor(255, 255, 255))
 
-            QApplication.instance().setPalette(palette)
+            self.app.setPalette(palette)
 
             # Стили для светлой темы
             self.setStyleSheet("""
@@ -959,7 +964,7 @@ class MarkdownEditor(QMainWindow):
                           "<li>Support for various encodings</li>"
                           "<li>Customizable interface</li>"
                           "</ul>"
-                          "<p>Version 0.1.1</p>"
+                          "<p>Version 0.1.0</p>"
                           "<p>Developer - alexsevas</p>"
                           "<p>mailto - a1exsevas@yandex.ru</p>")
 
