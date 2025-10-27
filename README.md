@@ -113,9 +113,6 @@ x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
 \]  
 Answer: \boxed{x = 42}
 
-### Test Files
-- `test_latex.md` – basic examples  
-- `test_latex_extended.md` – extended examples covering all variants
 
 ### Version
-Markdown Editor v0.0.5 with full LaTeX support
+Markdown Editor v0.0.9 with full LaTeX support
