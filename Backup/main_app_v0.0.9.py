@@ -1,4 +1,5 @@
 # v0.0.9
+# Крайняя рабочая версия до рефакторинга и разбивки кода на отдельные модули
 
 # conda activate allpy311
 # pip install PyQt5 PyQtWebEngine markdown chardet Pygments
