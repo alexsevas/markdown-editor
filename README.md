@@ -1,118 +1,212 @@
-# A simple Markdown Editor with LaTeX Support
+# Markdown Editor 0.1 с поддержкой LaTeX
 
-I've created a complete Markdown editor with preview functionality, syntax highlighting, and LaTeX support. 
-This application uses PyQt5.
+Современный редактор Markdown с поддержкой LaTeX формул, синтаксической подсветкой и темной темой.
 
-## Requirements
+## 📋 Описание
 
-Before running this application, you need to install the following packages:
+Markdown Editor - это полнофункциональный редактор для создания и редактирования Markdown документов с возможностью предварительного просмотра в реальном времени. Приложение построено на PyQt5 и предоставляет удобный интерфейс для работы с текстом в формате Markdown.
 
-```bash
-pip install PyQt5 PyQtWebEngine markdown chardet
+## ✨ Основные возможности
+
+### 📝 Редактирование
+- **Редактор с номерами строк** - удобная навигация по документу
+- **Моноширинный шрифт Consolas** - четкое отображение текста как в блокноте
+- **Подсветка текущей строки** - визуальное выделение активной строки
+- **Стандартные горячие клавиши** - Ctrl+C, Ctrl+V, Ctrl+Z, Ctrl+Y и др.
+
+### 🔍 Предварительный просмотр
+- **Живой предварительный просмотр** - обновление в реальном времени
+- **Синхронизация прокрутки** - пропорциональная прокрутка между редактором и превью
+- **Поддержка изображений** - отображение локальных и веб-изображений
+- **Адаптивный дизайн** - контент занимает всю ширину окна
+
+### 🧮 LaTeX формулы
+- **Inline формулы**: `$формула$` и `\(формула\)`
+- **Display формулы**: `$$формула$$` и `\[формула\]`
+- **Одиночные LaTeX команды**: `\text{текст}`, `\frac{a}{b}`, `\vec{a}` и др.
+- **Расширенные пакеты**: ams, color, cancel, mhchem и другие
+- **MathJax 3** - современная библиотека для рендеринга математики
+
+### 🎨 Темы оформления
+- **Светлая тема** - классический белый фон
+- **Темная тема** - современный темный интерфейс
+- **Автоматическое переключение** стилей для всех элементов
+- **Сохранение настроек** между сессиями
+
+### 🌐 Кодировки
+- **Автоматическое определение** кодировки файла
+- **Поддержка кириллицы**: UTF-8, Windows-1251, KOI8-R
+- **Ручное переключение** кодировки через меню
+- **Безопасное чтение** файлов с некорректной кодировкой
+
+### 💻 Подсветка синтаксиса кода
+- **Автоматическое определение** языка программирования
+- **Поддержка популярных языков**: Python, JavaScript, C++, Rust, Go и др.
+- **Цветовые схемы**: Visual Studio (светлая), VS Code Dark+ (темная)
+- **Pygments** для качественной подсветки
+
+## 🏗️ Архитектура проекта
+
+```
+markdown-editor/
+├── main.py              # Точка входа в приложение
+├── editor.py            # Основной класс редактора
+├── highlighter.py       # Подсветка синтаксиса Markdown
+├── widgets.py           # Пользовательские виджеты
+├── __init__.py          # Инициализация пакета
+├── HISTORY.txt          # История изменений
+├── LICENSE              # Лицензия GPL v3
+└── README.md            # Документация проекта
 ```
 
-## Features
+### Модули
 
-1. **Dual-pane interface**: Left for editing, right for preview (with adjustable splitter) 
-2. **Syntax highlighting**: Custom MarkdownHighlighter class for visual distinction of Markdown elements 
-3. **Real-time preview**: Automatic update of preview with debounce timer for performance
-4. **LaTeX support**: Integrated MathJax for rendering mathematical formulas
-5. **Encoding detection**: Uses chardet to automatically detect file encoding when opening
-6. **Complete menu system**: File, Edit, View, and Help menus with appropriate actions
-7. **Keyboard shortcuts**: All standard shortcuts (Ctrl+C, Ctrl+V, Ctrl+S, etc.) implemented
+#### `main.py`
+- Точка входа в приложение
+- Инициализация QApplication
+- Создание и запуск главного окна
 
-The application implements a custom `MarkdownHighlighter` class that inherits from `QSyntaxHighlighter` to provide syntax highlighting for Markdown content.  
-This gives the editor pane visual cues similar to what you'd see on markdown platforms.
+#### `editor.py` - MarkdownEditor
+Основной класс приложения, содержащий:
+- Создание интерфейса (меню, панели, сплиттер)
+- Обработка файловых операций
+- Конвертация Markdown в HTML
+- Обработка LaTeX формул
+- Управление темами и кодировками
+- Синхронизация прокрутки
 
-For the preview pane, it uses `QWebEngineView` to render the converted HTML with proper styling and MathJax integration for LaTeX formulas. 
+#### `widgets.py` - TextEditWithLineNumbers
+Расширенный текстовый редактор:
+- Отображение номеров строк
+- Подсветка текущей строки
+- Адаптация под темы оформления
+- Обработка событий прокрутки и изменения размера
 
-The application handles different text encodings by using the `chardet` library to detect the encoding of files when opening them, ensuring all special characters display correctly. 
+#### `highlighter.py` - MarkdownHighlighter
+Подсветка синтаксиса Markdown:
+- Заголовки, жирный текст, курсив
+- Блоки кода и inline код
+- Ссылки, цитаты, списки
+- Поддержка светлой и темной тем
 
-All menu items have appropriate keyboard shortcuts assigned, making the application efficient to use without a mouse. 
+## 🚀 Установка и запуск
 
-## LaTeX Support in Markdown Editor
+### Требования
+- Python 3.7+
+- PyQt5
+- PyQtWebEngine
+- markdown
+- chardet
+- Pygments
 
-### Supported LaTeX Formula Formats
+### Установка зависимостей
+```bash
+# Установка пакетов
+pip install PyQt5 PyQtWebEngine markdown chardet Pygments
+```
 
-1. **Inline formulas (within text line)**
-   - Standard syntax: `$formula$`  
-     Example: `$E = mc^2$` → $E = mc^2$
-   - LaTeX syntax: `\(formula\)`  
-     Example: `\(x^2 + y^2 = r^2\)` → \(x^2 + y^2 = r^2\)
+### Запуск
+```bash
+python main.py
+```
 
-2. **Display formulas (as separate block)**
-   - Double dollar: `$$formula$$`  
-     $$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$
-   - LaTeX syntax: `\[formula\]`  
-     \[
-     \sum_{i=1}^{n} i = \frac{n(n+1)}{2}
-     \]
+## 📖 Использование
 
-3. **Standalone LaTeX commands (without delimiters)**  
-   The editor automatically recognizes and renders LaTeX commands even without `$...$`:
+### Основные операции
+- **Создать новый файл**: `Ctrl+N`
+- **Открыть файл**: `Ctrl+O`
+- **Сохранить**: `Ctrl+S`
+- **Сохранить как**: `Ctrl+Shift+S`
+- **Переключить превью**: `F11`
+- **Темная тема**: `Ctrl+D`
 
-   - **Text**  
-     `\text{cm}` → units of measurement  
-     `\text{m/s}` → meters per second
+### Работа с LaTeX
+Поддерживаются различные способы записи формул:
 
-   - **Fractions**  
-     `\frac{1}{2}` → ½  
-     `\frac{a}{b}` → fraction
+#### Inline формулы
+```markdown
+Формула в тексте: $E = mc^2$ или \(F = ma\)
+```
 
-   - **Vectors**  
-     `\vec{a}` → vector a  
-     `\overrightarrow{AB}` → vector AB  
-     `\overleftarrow{CD}` → left-pointing vector CD
+#### Display формулы
+```markdown
+Отдельная формула:
+$$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$
 
-   - **Arrows and operators**  
-     `\implies` → ⇒  
-     `\iff` → ⇔  
-     `\cdot` → ·  
-     `\times` → ×  
-     `\uparrow` → ↑  
-     `\downarrow` → ↓
+или
 
-   - **Roots**  
-     `\sqrt{2}` → √2  
-     `\sqrt[3]{8}` → ³√8
-
-   - **Overlines and accents**  
-     `\overline{AB}` → line over AB  
-     `\underline{text}` → underline  
-     `\hat{x}` → hat over x  
-     `\bar{y}` → bar over y  
-     `\tilde{z}` → tilde over z
-
-   - **Boxes**  
-     `\boxed{x = 5}` → result in a box  
-     `\boxed{E = mc^2}` → formula in a box
-
-   - **Greek letters**  
-     `\alpha, \beta, \gamma, \delta, \theta, \pi, \sigma, \omega`  
-     `\Delta, \Gamma, \Lambda, \Omega, \Sigma, \Phi, \Psi`
-
-   - **Special symbols**  
-     `\infty` → ∞  
-     `\partial` → ∂  
-     `\nabla` → ∇  
-     `\hbar` → ℏ
-
-### Usage Examples
-
-**Physics**  
-Newton's second law: \vec{F} = m\vec{a}  
-Speed of light: $c = 3 \times 10^8$ \text{m/s}  
-Kinetic energy:  
-$$E_k = \frac{mv^2}{2}$$
-
-**Mathematics**  
-Pythagorean theorem: $a^2 + b^2 = c^2$  
-Quadratic formula:  
 \[
-x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
-\]  
-Answer: \boxed{x = 42}
+\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}
+\]
+```
 
+#### Одиночные команды
+```markdown
+Текст с \text{обычным текстом} в формуле
+Дробь: \frac{a}{b}
+Вектор: \vec{a}
+Стрелка: \implies
+```
 
-### Version
-Markdown Editor v0.0.9 with full LaTeX support
+### Поддерживаемые элементы Markdown
+- Заголовки (`# ## ###`)
+- **Жирный текст** (`**текст**`)
+- *Курсив* (`*текст*`)
+- `Inline код` (`` `код` ``)
+- Блоки кода (``` или отступ 4 пробела)
+- [Ссылки](url)
+- > Цитаты
+- Списки (маркированные и нумерованные)
+- Таблицы
+- Изображения
+
+## 🔧 Настройки
+
+Приложение сохраняет настройки в системном реестре:
+- **Тема оформления** (светлая/темная)
+- **Кодировка по умолчанию**
+- **Размер и положение окна**
+
+## 📝 История версий
+
+### v0.1.0 (Текущая)
+- Модульная архитектура
+- Номера строк и подсветка текущей строки
+- Улучшенная поддержка LaTeX
+
+### v0.0.9
+- Поддержка локальных изображений
+- Адаптивная ширина контента
+- Улучшенное отображение изображений
+
+### v0.0.8
+- CSS стили для подсветки синтаксиса
+- Поддержка популярных языков программирования
+- Цветовые схемы для обеих тем
+
+### v0.0.7
+- Синхронизация прокрутки между панелями
+- Номера строк в редакторе
+- Улучшенная стилизация тем
+
+Полная история изменений доступна в файле `HISTORY.txt`.
+
+## 🤝 Участие в разработке
+
+Проект распространяется под лицензией GPL v3. Вы можете:
+- Использовать код в своих проектах
+- Модифицировать и улучшать функциональность
+- Распространять изменения под той же лицензией
+
+## 👨‍💻 Автор
+
+**alexsevas**
+- Email: a1exsevas@yandex.ru
+
+## 📄 Лицензия
+
+Этот проект лицензирован под GNU General Public License v3.0 - подробности в файле [LICENSE](LICENSE).
+
+---
+
+*Markdown Editor - современный инструмент для работы с документацией, заметками и техническими текстами с поддержкой математических формул.*
