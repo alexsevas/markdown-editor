@@ -22,12 +22,11 @@ from widgets import TextEditWithLineNumbers
 from highlighter import MarkdownHighlighter
 
 
-
 class MarkdownEditor(QMainWindow):
     def __init__(self, app):
         super().__init__()
         self.app = app
-        #self.apply_theme()
+        # self.apply_theme()
         self.settings = QSettings("Markdown", "Editor")
         self.dark_mode = self.settings.value("dark_mode", False, type=bool)
         self.current_encoding = self.settings.value("encoding", "utf-8", type=str)
@@ -845,11 +844,53 @@ class MarkdownEditor(QMainWindow):
         self.render_preview()
         self.statusBar().showMessage("Dark Mode ON" if checked else "Dark Mode OFF", 2000)
 
+    def create_message_box(self, icon, title, text, buttons=QMessageBox.Ok):
+        """Создает QMessageBox с правильной темой"""
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(icon)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(text)
+        msg_box.setStandardButtons(buttons)
+
+        # Применяем текущую палитру приложения к диалогу
+        msg_box.setPalette(self.app.palette())
+
+        # Применяем стили в зависимости от темы
+        if self.dark_mode:
+            msg_box.setStyleSheet("""
+                QMessageBox {
+                    background-color: #2d2d2d;
+                    color: #ffffff;
+                }
+                QLabel {
+                    color: #ffffff;
+                }
+                QPushButton {
+                    background-color: #3d3d3d;
+                    color: #ffffff;
+                    border: 1px solid #555555;
+                    padding: 5px 15px;
+                    min-width: 60px;
+                }
+                QPushButton:hover {
+                    background-color: #4d4d4d;
+                }
+                QPushButton:pressed {
+                    background-color: #5d5d5d;
+                }
+            """)
+
+        return msg_box
+
     def new_file(self):
         if self.editor.document().isModified():
-            reply = QMessageBox.question(self, "Save Changes",
-                                         "Do you want to save changes to the current document?",
-                                         QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+            msg_box = self.create_message_box(
+                QMessageBox.Question,
+                "Save Changes",
+                "Do you want to save changes to the current document?",
+                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel
+            )
+            reply = msg_box.exec_()
 
             if reply == QMessageBox.Save:
                 self.save_file()
@@ -888,7 +929,12 @@ class MarkdownEditor(QMainWindow):
                 self.setWindowTitle(f"Markdown Editor - {path}")
                 self.statusBar().showMessage(f"Opened {path} [{auto_encoding}]", 5000)
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to open file: {str(e)}")
+                msg_box = self.create_message_box(
+                    QMessageBox.Critical,
+                    "Error",
+                    f"Failed to open file: {str(e)}"
+                )
+                msg_box.exec_()
 
     def set_encoding(self, encoding):
         if not self.current_file:
@@ -916,8 +962,12 @@ class MarkdownEditor(QMainWindow):
             self.encoding_label.setText(encoding)
             self.statusBar().showMessage(f"Reloaded with {encoding} encoding", 3000)
         except Exception as e:
-            QMessageBox.warning(self, "Encoding Error",
-                                f"Failed to decode with {encoding}:\n{str(e)}")
+            msg_box = self.create_message_box(
+                QMessageBox.Warning,
+                "Encoding Error",
+                f"Failed to decode with {encoding}:\n{str(e)}"
+            )
+            msg_box.exec_()
 
     def save_file(self):
         if self.current_file:
@@ -929,7 +979,12 @@ class MarkdownEditor(QMainWindow):
                 self.editor.document().setModified(False)
                 self.statusBar().showMessage(f"Saved {self.current_file} [{self.current_encoding}]", 3000)
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save file: {str(e)}")
+                msg_box = self.create_message_box(
+                    QMessageBox.Critical,
+                    "Error",
+                    f"Failed to save file: {str(e)}"
+                )
+                msg_box.exec_()
         else:
             self.save_file_as()
 
@@ -952,27 +1007,65 @@ class MarkdownEditor(QMainWindow):
             self.splitter.widget(1).hide()
 
     def show_about(self):
-        QMessageBox.about(self, "About Markdown Editor",
-                          "<h3>Markdown Editor</h3>"
-                          "<p>A Markdown editor and viewer with syntax highlighting and LaTeX support.</p>"
-                          "<p>Features:</p>"
-                          "<ul>"
-                          "<li>Real-time preview</li>"
-                          "<li>Markdown syntax highlighting</li>"
-                          "<li>LaTeX formula rendering:</li>"
-                          "(inline: $...$ and display: $$...$$)"
-                          "<li>Support for various encodings</li>"
-                          "<li>Customizable interface</li>"
-                          "</ul>"
-                          "<p>Version 0.1.0</p>"
-                          "<p>Developer - alexsevas</p>"
-                          "<p>mailto - a1exsevas@yandex.ru</p>")
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("About Markdown Editor")
+        msg_box.setTextFormat(Qt.RichText)
+        msg_box.setText(
+            "<h3>Markdown Editor</h3>"
+            "<p>A Markdown editor and viewer with syntax highlighting and LaTeX support.</p>"
+            "<p>Features:</p>"
+            "<ul>"
+            "<li>Real-time preview</li>"
+            "<li>Markdown syntax highlighting</li>"
+            "<li>LaTeX formula rendering:</li>"
+            "(inline: $...$ and display: $$...$$)"
+            "<li>Support for various encodings</li>"
+            "<li>Customizable interface</li>"
+            "</ul>"
+            "<p>Version 0.1.0</p>"
+            "<p>Developer - alexsevas</p>"
+            "<p>mailto - a1exsevas@yandex.ru</p>"
+        )
+
+        # Применяем текущую палитру приложения к диалогу
+        msg_box.setPalette(self.app.palette())
+
+        # Применяем стили в зависимости от темы
+        if self.dark_mode:
+            msg_box.setStyleSheet("""
+                QMessageBox {
+                    background-color: #2d2d2d;
+                    color: #ffffff;
+                }
+                QLabel {
+                    color: #ffffff;
+                }
+                QPushButton {
+                    background-color: #3d3d3d;
+                    color: #ffffff;
+                    border: 1px solid #555555;
+                    padding: 5px 15px;
+                    min-width: 60px;
+                }
+                QPushButton:hover {
+                    background-color: #4d4d4d;
+                }
+                QPushButton:pressed {
+                    background-color: #5d5d5d;
+                }
+            """)
+
+        msg_box.exec_()
 
     def closeEvent(self, event):
         if self.editor.document().isModified():
-            reply = QMessageBox.question(self, "Save Changes",
-                                         "Do you want to save changes to the current document?",
-                                         QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+            msg_box = self.create_message_box(
+                QMessageBox.Question,
+                "Save Changes",
+                "Do you want to save changes to the current document?",
+                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel
+            )
+            reply = msg_box.exec_()
 
             if reply == QMessageBox.Save:
                 self.save_file()
