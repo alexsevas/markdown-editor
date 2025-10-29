@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QL
                              QVBoxLayout, QSplitter, QTextEdit, QFileDialog,
                              QMenu, QAction, QMessageBox, QShortcut, QFrame, QPlainTextEdit)
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QUrl, QTimer, Qt, QSettings, QSize, QRect
+from PyQt5.QtCore import QUrl, QTimer, Qt, QSettings, QSize, QRect, pyqtSignal
 from PyQt5.QtGui import (QFont, QColor, QTextCharFormat, QSyntaxHighlighter,
                          QTextCursor, QKeySequence, QPalette, QPainter, QTextFormat)
 from PyQt5.QtWebChannel import QWebChannel
@@ -20,6 +20,32 @@ from PyQt5.QtWebChannel import QWebChannel
 # Импортируем наши модули
 from widgets import TextEditWithLineNumbers
 from highlighter import MarkdownHighlighter
+
+
+class ZoomableWebView(QWebEngineView):
+    """QWebEngineView с поддержкой масштабирования через Ctrl+колесо мыши"""
+    zoomChanged = pyqtSignal(float)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._zoom_factor = 1.0
+
+    def get_zoom_factor(self):
+        return self._zoom_factor
+
+    def change_zoom(self, delta):
+        """Изменяет масштаб на основе delta колеса мыши"""
+        if delta > 0:
+            self._zoom_factor *= 1.1
+        elif delta < 0:
+            self._zoom_factor /= 1.1
+
+        # Ограничиваем масштаб
+        self._zoom_factor = max(0.25, min(5.0, self._zoom_factor))
+
+        self.setZoomFactor(self._zoom_factor)
+        self.zoomChanged.emit(self._zoom_factor)
+        return True
 
 
 class MarkdownEditor(QMainWindow):
@@ -53,8 +79,8 @@ class MarkdownEditor(QMainWindow):
         self.editor.setTabStopDistance(40)
         editor_layout.addWidget(self.editor)
 
-        # Highlighter отключен - текст отображается как в обычном блокноте
-        # self.highlighter = MarkdownHighlighter(self.editor.document(), self.dark_mode)
+        # Включаем подсветку синтаксиса Markdown
+        self.highlighter = MarkdownHighlighter(self.editor.document(), self.dark_mode)
 
         self.splitter.addWidget(editor_container)
 
@@ -62,7 +88,11 @@ class MarkdownEditor(QMainWindow):
         preview_layout = QVBoxLayout(preview_container)
         preview_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.preview = QWebEngineView()
+        self.preview = ZoomableWebView()
+        # Отслеживание масштаба preview
+        self.preview_zoom = 1.0
+        self.preview.setZoomFactor(self.preview_zoom)
+        self.preview.zoomChanged.connect(self.update_zoom_label)
         preview_layout.addWidget(self.preview)
 
         self.splitter.addWidget(preview_container)
@@ -82,9 +112,16 @@ class MarkdownEditor(QMainWindow):
 
         self.apply_theme()
 
-        # Синхронизация прокрутки
+        # Синхронизация по позиции курсора
         self.sync_scroll_enabled = True
-        self.editor.verticalScrollBar().valueChanged.connect(self.sync_editor_to_preview)
+        self.editor.cursorPositionChanged.connect(self.sync_cursor_to_preview)
+        # Таймер для отложенной синхронизации
+        self.cursor_sync_timer = QTimer()
+        self.cursor_sync_timer.setSingleShot(True)
+        self.cursor_sync_timer.timeout.connect(self.do_cursor_sync)
+
+        # Устанавливаем фильтр событий для перехвата Ctrl+колесо в preview
+        self.preview.installEventFilter(self)
 
         self.render_preview()
 
@@ -198,6 +235,10 @@ class MarkdownEditor(QMainWindow):
         self.encoding_label = QLabel(self.current_encoding)
         self.statusBar().addPermanentWidget(self.encoding_label)
 
+        self.statusBar().addPermanentWidget(QLabel(" | Zoom: "))
+        self.zoom_label = QLabel("100%")
+        self.statusBar().addPermanentWidget(self.zoom_label)
+
     def setup_shortcuts(self):
         QShortcut(QKeySequence("Ctrl+Z"), self, self.editor.undo)
         QShortcut(QKeySequence("Ctrl+Y"), self, self.editor.redo)
@@ -205,6 +246,12 @@ class MarkdownEditor(QMainWindow):
         QShortcut(QKeySequence("Ctrl+C"), self, self.editor.copy)
         QShortcut(QKeySequence("Ctrl+V"), self, self.editor.paste)
         QShortcut(QKeySequence("Ctrl+A"), self, self.editor.selectAll)
+
+        # Горячие клавиши для масштабирования preview
+        QShortcut(QKeySequence("Ctrl++"), self, self.zoom_in_preview)
+        QShortcut(QKeySequence("Ctrl+="), self, self.zoom_in_preview)  # Ctrl+= (без Shift)
+        QShortcut(QKeySequence("Ctrl+-"), self, self.zoom_out_preview)
+        QShortcut(QKeySequence("Ctrl+0"), self, self.zoom_reset_preview)
 
     def start_update_timer(self):
         self.update_timer.start(300)
@@ -220,37 +267,87 @@ class MarkdownEditor(QMainWindow):
             base_url = QUrl.fromLocalFile(os.getcwd() + os.sep)
 
         self.preview.setHtml(html, base_url)
-        # Синхронизируем прокрутку после рендеринга
-        QTimer.singleShot(100, self.sync_editor_to_preview)
+        # Синхронизируем позицию курсора после рендеринга
+        QTimer.singleShot(150, self.do_cursor_sync)
 
-    def sync_editor_to_preview(self):
-        """Синхронизация прокрутки редактора с preview"""
+    def sync_cursor_to_preview(self):
+        """Запускает таймер для синхронизации позиции курсора с preview"""
+        # Используем таймер чтобы не перегружать при быстром движении курсора
+        self.cursor_sync_timer.start(50)
+
+    def do_cursor_sync(self):
+        """Выполняет синхронизацию позиции курсора с preview - выравнивает строки по вертикали"""
         if not self.sync_scroll_enabled:
             return
 
-        # Получаем позицию прокрутки редактора
-        scrollbar = self.editor.verticalScrollBar()
-        if scrollbar.maximum() == 0:
-            scroll_percent = 0
-        else:
-            scroll_percent = scrollbar.value() / scrollbar.maximum()
+        # Получаем текущую позицию курсора
+        cursor = self.editor.textCursor()
+        current_line = cursor.blockNumber()
 
-        # Прокручиваем preview на тот же процент
-        js_code = f"window.scrollTo(0, document.body.scrollHeight * {scroll_percent});"
+        # Получаем общее количество строк
+        total_lines = self.editor.document().blockCount()
+
+        if total_lines <= 1:
+            return
+
+        # Вычисляем процентную позицию курсора в документе
+        line_percent = current_line / max(1, total_lines - 1)
+
+        # Получаем вертикальную позицию курсора в редакторе (в пикселях от верха viewport)
+        cursor_rect = self.editor.cursorRect(cursor)
+        cursor_y_in_editor = cursor_rect.top()
+
+        # Получаем высоту viewport редактора
+        editor_viewport_height = self.editor.viewport().height()
+
+        # Вычисляем относительную позицию курсора в viewport (0.0 - верх, 1.0 - низ)
+        cursor_relative_pos = cursor_y_in_editor / max(1, editor_viewport_height)
+
+        # Прокручиваем preview используя процентную позицию
+        js_code = f"""
+            (function() {{
+                // Вычисляем целевую позицию в preview на основе процента документа
+                var documentHeight = document.body.scrollHeight;
+                var viewportHeight = window.innerHeight;
+                var maxScroll = documentHeight - viewportHeight;
+
+                // Позиция в документе на основе процента строки
+                var targetPositionInDocument = documentHeight * {line_percent};
+
+                // Вычитаем относительную позицию курсора в viewport редактора
+                // чтобы выровнять preview на той же относительной высоте
+                var targetScrollY = targetPositionInDocument - (viewportHeight * {cursor_relative_pos});
+
+                // Ограничиваем прокрутку допустимыми значениями
+                targetScrollY = Math.max(0, Math.min(targetScrollY, maxScroll));
+
+                window.scrollTo({{
+                    top: targetScrollY,
+                    behavior: 'smooth'
+                }});
+            }})();
+        """
         self.preview.page().runJavaScript(js_code)
 
-    def sync_preview_to_editor(self, scroll_percent):
-        """Синхронизация прокрутки preview с редактором"""
-        if not self.sync_scroll_enabled:
-            return
+    def eventFilter(self, obj, event):
+        """Фильтр событий для перехвата колеса мыши в preview"""
+        from PyQt5.QtCore import QEvent
 
-        scrollbar = self.editor.verticalScrollBar()
-        new_value = int(scrollbar.maximum() * scroll_percent)
+        # Проверяем что событие от preview
+        if obj == self.preview:
+            if event.type() == QEvent.Wheel:
+                # Получаем текущее состояние клавиш
+                from PyQt5.QtWidgets import QApplication
+                modifiers = QApplication.keyboardModifiers()
 
-        # Временно отключаем синхронизацию, чтобы избежать рекурсии
-        self.sync_scroll_enabled = False
-        scrollbar.setValue(new_value)
-        self.sync_scroll_enabled = True
+                # Проверяем, зажат ли Ctrl
+                if modifiers & Qt.ControlModifier:
+                    delta = event.angleDelta().y()
+                    self.preview.change_zoom(delta)
+                    return True  # Событие обработано
+
+        # Передаем событие дальше
+        return super().eventFilter(obj, event)
 
     def find_matching_brace(self, text, start_pos):
         """Находит соответствующую закрывающую скобку с учетом вложенности"""
@@ -350,7 +447,10 @@ class MarkdownEditor(QMainWindow):
             placeholder = f'LATEX_INLINE_{len(latex_blocks) - 1}_PLACEHOLDER'
             md_text = md_text[:start] + placeholder + md_text[end:]
 
-        # Конвертируем Markdown в HTML
+        # Сохраняем количество строк для маркеров
+        total_md_lines = len(md_text.split('\n'))
+
+        # Конвертируем Markdown в HTML БЕЗ маркеров
         html = markdown.markdown(md_text,
                                  extensions=[
                                      'fenced_code',
@@ -839,6 +939,10 @@ class MarkdownEditor(QMainWindow):
         self.dark_mode = checked
         self.settings.setValue("dark_mode", checked)
         self.apply_theme()
+        # Обновляем highlighter с новой темой
+        self.highlighter.dark_mode = checked
+        self.highlighter.setup_formats()
+        self.highlighter.rehighlight()
         self.editor.highlight_current_line()  # Обновляем подсветку текущей строки
         self.editor.line_number_area.update()  # Обновляем номера строк
         self.render_preview()
@@ -1006,6 +1110,26 @@ class MarkdownEditor(QMainWindow):
         else:
             self.splitter.widget(1).hide()
 
+    def update_zoom_label(self, zoom_factor):
+        """Обновляет метку масштаба в статус-баре"""
+        self.preview_zoom = zoom_factor
+        zoom_percent = int(zoom_factor * 100)
+        self.zoom_label.setText(f"{zoom_percent}%")
+
+    def zoom_in_preview(self):
+        """Увеличивает масштаб preview"""
+        self.preview.change_zoom(120)  # Положительное значение для увеличения
+
+    def zoom_out_preview(self):
+        """Уменьшает масштаб preview"""
+        self.preview.change_zoom(-120)  # Отрицательное значение для уменьшения
+
+    def zoom_reset_preview(self):
+        """Сбрасывает масштаб preview на 100%"""
+        self.preview._zoom_factor = 1.0
+        self.preview.setZoomFactor(1.0)
+        self.preview.zoomChanged.emit(1.0)
+
     def show_about(self):
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("About Markdown Editor")
@@ -1022,7 +1146,7 @@ class MarkdownEditor(QMainWindow):
             "<li>Support for various encodings</li>"
             "<li>Customizable interface</li>"
             "</ul>"
-            "<p>Version 0.1.0</p>"
+            "<p>Version 0.1.1</p>"
             "<p>Developer - alexsevas</p>"
             "<p>mailto - a1exsevas@yandex.ru</p>"
         )

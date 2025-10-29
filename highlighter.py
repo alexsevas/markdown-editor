@@ -26,108 +26,147 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         self.setup_formats()
 
     def setup_formats(self):
-        # Цвета для светлой темы
+        # Цвета для светлой и темной темы
+        # Фиолетовый для заголовков, оранжевый для элементов разметки
         if not self.dark_mode:
-            header_color = QColor(106, 124, 192)
-            bold_color = QColor(220, 50, 47)
-            italic_color = QColor(255, 140, 0)
+            header_text_color = QColor(138, 43, 226)  # Фиолетовый для текста заголовков
+            markup_color = QColor(255, 140, 0)  # Оранжевый для символов разметки
+            text_color = QColor(0, 0, 0)  # Черный для обычного текста
             code_bg = QColor(245, 245, 245)
             code_fg = QColor(0, 0, 0)
             link_color = QColor(30, 144, 255)
-            blockquote_color = QColor(100, 100, 100)
-            list_color = QColor(0, 100, 0)
             inline_code_bg = QColor(240, 240, 240)
             inline_code_fg = QColor(200, 0, 0)
         else:
-            header_color = QColor(100, 180, 255)
-            bold_color = QColor(255, 100, 100)
-            italic_color = QColor(255, 180, 80)
+            header_text_color = QColor(186, 85, 211)  # Светло-фиолетовый для текста заголовков
+            markup_color = QColor(255, 165, 0)  # Оранжевый для символов разметки
+            text_color = QColor(224, 224, 224)  # Светлый для обычного текста
             code_bg = QColor(40, 40, 40)
             code_fg = QColor(220, 220, 220)
             link_color = QColor(100, 180, 255)
-            blockquote_color = QColor(180, 180, 180)
-            list_color = QColor(100, 200, 100)
             inline_code_bg = QColor(60, 60, 60)
             inline_code_fg = QColor(255, 150, 150)
 
         self.formats = {}
 
-        header_format = QTextCharFormat()
-        header_format.setFontWeight(QFont.Bold)
-        header_format.setForeground(header_color)
-        self.formats["header"] = header_format
+        # Формат для текста заголовков (фиолетовый)
+        header_text_format = QTextCharFormat()
+        header_text_format.setFontWeight(QFont.Bold)
+        header_text_format.setForeground(header_text_color)
+        self.formats["header_text"] = header_text_format
 
-        bold_format = QTextCharFormat()
-        bold_format.setFontWeight(QFont.Bold)
-        bold_format.setForeground(bold_color)
-        self.formats["bold"] = bold_format
+        # Формат для символов разметки (оранжевый)
+        markup_format = QTextCharFormat()
+        markup_format.setForeground(markup_color)
+        self.formats["markup"] = markup_format
 
-        italic_format = QTextCharFormat()
-        italic_format.setFontItalic(True)
-        italic_format.setForeground(italic_color)
-        self.formats["italic"] = italic_format
+        # Формат для жирного текста
+        bold_text_format = QTextCharFormat()
+        bold_text_format.setFontWeight(QFont.Bold)
+        bold_text_format.setForeground(text_color)
+        self.formats["bold_text"] = bold_text_format
 
+        # Формат для курсива
+        italic_text_format = QTextCharFormat()
+        italic_text_format.setFontItalic(True)
+        italic_text_format.setForeground(text_color)
+        self.formats["italic_text"] = italic_text_format
+
+        # Формат для блоков кода
         code_format = QTextCharFormat()
         code_format.setFontFamilies(["Consolas", "Courier New", "monospace"])
         code_format.setBackground(code_bg)
         code_format.setForeground(code_fg)
         self.formats["code"] = code_format
 
+        # Формат для inline кода
         inline_code_format = QTextCharFormat()
         inline_code_format.setFontFamilies(["Consolas", "Courier New", "monospace"])
         inline_code_format.setBackground(inline_code_bg)
         inline_code_format.setForeground(inline_code_fg)
         self.formats["inline_code"] = inline_code_format
 
+        # Формат для ссылок
         link_format = QTextCharFormat()
         link_format.setForeground(link_color)
         link_format.setFontUnderline(True)
         self.formats["link"] = link_format
 
+        # Формат для цитат
         blockquote_format = QTextCharFormat()
-        blockquote_format.setForeground(blockquote_color)
+        blockquote_format.setForeground(text_color)
         blockquote_format.setFontItalic(True)
         self.formats["blockquote"] = blockquote_format
 
-        list_format = QTextCharFormat()
-        list_format.setForeground(list_color)
-        self.formats["list"] = list_format
-
     def highlightBlock(self, text):
-        header1 = self.format_header(text, r'^#{1,6} .+', "header")
-        self.format_text(text, r'\*{2}[^*]+\*{2}|_{2}[^_]+_{2}', "bold", 2)
-        self.format_text(text, r'\*[^*]+\*|_[^_]+_', "italic", 1)
-        self.format_text(text, r'`[^`]+`', "inline_code", 1)
+        # Заголовки: # оранжевым, текст фиолетовым
+        header_match = re.match(r'^(#{1,6})\s+(.+)', text)
+        if header_match:
+            # Символы # - оранжевым
+            self.setFormat(0, len(header_match.group(1)), self.formats["markup"])
+            # Пробел после #
+            space_start = len(header_match.group(1))
+            # Текст заголовка - фиолетовым
+            text_start = header_match.start(2)
+            text_length = len(header_match.group(2))
+            self.setFormat(text_start, text_length, self.formats["header_text"])
+            return
 
+        # Жирный текст: ** или __ оранжевым, текст жирным
+        for match in re.finditer(r'(\*\*|__)([^*_]+)(\*\*|__)', text):
+            # Открывающие символы - оранжевым
+            self.setFormat(match.start(1), len(match.group(1)), self.formats["markup"])
+            # Текст - жирным
+            self.setFormat(match.start(2), len(match.group(2)), self.formats["bold_text"])
+            # Закрывающие символы - оранжевым
+            self.setFormat(match.start(3), len(match.group(3)), self.formats["markup"])
+
+        # Курсив: * или _ оранжевым, текст курсивом
+        for match in re.finditer(r'(?<!\*)\*(?!\*)([^*]+)\*(?!\*)|(?<!_)_(?!_)([^_]+)_(?!_)', text):
+            if match.group(1):  # * ... *
+                self.setFormat(match.start(), 1, self.formats["markup"])
+                self.setFormat(match.start() + 1, len(match.group(1)), self.formats["italic_text"])
+                self.setFormat(match.end() - 1, 1, self.formats["markup"])
+            elif match.group(2):  # _ ... _
+                self.setFormat(match.start(), 1, self.formats["markup"])
+                self.setFormat(match.start() + 1, len(match.group(2)), self.formats["italic_text"])
+                self.setFormat(match.end() - 1, 1, self.formats["markup"])
+
+        # Inline код: ` оранжевым, текст с фоном
+        for match in re.finditer(r'(`+)([^`]+)(`+)', text):
+            # Открывающие ` - оранжевым
+            self.setFormat(match.start(1), len(match.group(1)), self.formats["markup"])
+            # Текст кода
+            self.setFormat(match.start(2), len(match.group(2)), self.formats["inline_code"])
+            # Закрывающие ` - оранжевым
+            self.setFormat(match.start(3), len(match.group(3)), self.formats["markup"])
+
+        # Блоки кода (4 пробела или tab)
         if text.startswith('    ') or text.startswith('\t'):
             self.setFormat(0, len(text), self.formats["code"])
+            return
 
+        # Цитаты: > оранжевым, текст курсивом
         if text.startswith('> '):
-            self.setFormat(0, len(text), self.formats["blockquote"])
+            self.setFormat(0, 1, self.formats["markup"])  # >
+            self.setFormat(1, len(text) - 1, self.formats["blockquote"])  # текст
+            return
 
-        self.format_text(text, r'\[.*?\]\(.*?\)', "link", 0)
+        # Списки: *, -, +, 1. оранжевым
+        list_match = re.match(r'^(\s*)([\*\-\+]|\d+\.)\s+', text)
+        if list_match:
+            # Отступ
+            indent_len = len(list_match.group(1))
+            # Маркер списка - оранжевым
+            marker_start = indent_len
+            marker_len = len(list_match.group(2))
+            self.setFormat(marker_start, marker_len, self.formats["markup"])
 
-        if text.startswith(('* ', '- ', '+ ')) or (len(text) > 2 and text[1:3] == '. ' and text[0].isdigit()):
-            self.setFormat(0, len(text), self.formats["list"])
-
-    def format_header(self, text, pattern, format_key):
-        import re
-        for match in re.finditer(pattern, text):
-            header_level = 0
-            for char in match.group():
-                if char == '#':
-                    header_level += 1
-                else:
-                    break
-            start = match.start()
-            length = match.end() - match.start()
-            self.setFormat(start, length, self.formats[format_key])
-            return True
-        return False
-
-    def format_text(self, text, pattern, format_key, offset=0):
-        import re
-        for match in re.finditer(pattern, text):
-            start = match.start() + offset
-            length = match.end() - match.start() - 2 * offset
-            self.setFormat(start, length, self.formats[format_key])
+        # Ссылки: [текст](url) - скобки оранжевым
+        for match in re.finditer(r'(\[)([^\]]+)(\])(\()([^\)]+)(\))', text):
+            self.setFormat(match.start(1), 1, self.formats["markup"])  # [
+            self.setFormat(match.start(2), len(match.group(2)), self.formats["link"])  # текст
+            self.setFormat(match.start(3), 1, self.formats["markup"])  # ]
+            self.setFormat(match.start(4), 1, self.formats["markup"])  # (
+            self.setFormat(match.start(5), len(match.group(5)), self.formats["link"])  # url
+            self.setFormat(match.start(6), 1, self.formats["markup"])  # )
