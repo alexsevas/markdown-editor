@@ -11,8 +11,10 @@ import markdown
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QLabel,
                              QVBoxLayout, QSplitter, QTextEdit, QFileDialog,
                              QMenu, QAction, QMessageBox, QShortcut, QFrame, QPlainTextEdit)
-from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QUrl, QTimer, Qt, QSettings, QSize, QRect, pyqtSignal
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
+from PyQt5.QtCore import QUrl, QTimer, Qt, QSettings, QSize, QRect, pyqtSignal, QMarginsF
+from PyQt5.QtPrintSupport import QPrinter
+from PyQt5.QtGui import QPageLayout, QPageSize
 from PyQt5.QtGui import (QFont, QColor, QTextCharFormat, QSyntaxHighlighter,
                          QTextCursor, QKeySequence, QPalette, QPainter, QTextFormat)
 from PyQt5.QtWebChannel import QWebChannel
@@ -147,6 +149,13 @@ class MarkdownEditor(QMainWindow):
         save_as_action.setShortcut("Ctrl+Shift+S")
         save_as_action.triggered.connect(self.save_file_as)
         file_menu.addAction(save_as_action)
+
+        file_menu.addSeparator()
+
+        save_pdf_action = QAction("Save as PDF...", self)
+        save_pdf_action.setShortcut("Ctrl+P")
+        save_pdf_action.triggered.connect(self.save_as_pdf)
+        file_menu.addAction(save_pdf_action)
 
         file_menu.addSeparator()
 
@@ -1103,6 +1112,55 @@ class MarkdownEditor(QMainWindow):
             self.current_file = path
             self.save_file()
             self.setWindowTitle(f"Markdown Editor - {path}")
+
+    def save_as_pdf(self):
+        """Сохраняет отрендеренный markdown в PDF файл"""
+        # Предлагаем имя файла на основе текущего файла
+        default_name = ""
+        if self.current_file:
+            default_name = os.path.splitext(self.current_file)[0] + ".pdf"
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save as PDF",
+            default_name,
+            "PDF Files (*.pdf);;All Files (*)"
+        )
+
+        if path:
+            if not path.endswith('.pdf'):
+                path += '.pdf'
+
+            # Показываем сообщение о начале экспорта
+            self.statusBar().showMessage("Exporting to PDF...", 0)
+            QApplication.processEvents()  # Обновляем UI
+
+            # Настраиваем layout страницы
+            layout = QPageLayout()
+            layout.setPageSize(QPageSize(QPageSize.A4))
+            layout.setOrientation(QPageLayout.Portrait)
+            layout.setMargins(QMarginsF(15, 15, 15, 15))  # Отступы в мм
+
+            # Callback для обработки результата
+            def pdf_saved(pdf_data):
+                if pdf_data:
+                    try:
+                        with open(path, 'wb') as f:
+                            f.write(pdf_data)
+                        self.statusBar().showMessage(f"PDF saved to {path}", 3000)
+                    except Exception as e:
+                        msg_box = self.create_message_box(
+                            QMessageBox.Critical,
+                            "Error",
+                            f"Failed to save PDF: {str(e)}"
+                        )
+                        msg_box.exec_()
+                        self.statusBar().showMessage("PDF export failed", 3000)
+                else:
+                    self.statusBar().showMessage("PDF export failed", 3000)
+
+            # Сохраняем в PDF с callback
+            self.preview.page().printToPdf(pdf_saved, layout)
 
     def toggle_preview(self, checked):
         if checked:
