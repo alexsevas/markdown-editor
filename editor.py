@@ -16,7 +16,7 @@ from PyQt5.QtCore import QUrl, QTimer, Qt, QSettings, QSize, QRect, pyqtSignal, 
 from PyQt5.QtPrintSupport import QPrinter
 from PyQt5.QtGui import QPageLayout, QPageSize
 from PyQt5.QtGui import (QFont, QColor, QTextCharFormat, QSyntaxHighlighter,
-                         QTextCursor, QKeySequence, QPalette, QPainter, QTextFormat)
+                         QTextCursor, QKeySequence, QPalette, QPainter, QTextFormat, QIcon)
 from PyQt5.QtWebChannel import QWebChannel
 
 # Импортируем наши модули
@@ -62,6 +62,9 @@ class MarkdownEditor(QMainWindow):
         self.setWindowTitle("Markdown Editor")
         self.setGeometry(100, 100, 1200, 800)
 
+        # Устанавливаем иконку окна
+        self.set_window_icon()
+
         self.current_file = None
 
         central_widget = QWidget()
@@ -91,6 +94,15 @@ class MarkdownEditor(QMainWindow):
         preview_layout.setContentsMargins(0, 0, 0, 0)
 
         self.preview = ZoomableWebView()
+
+        # Настройки WebEngine для корректной работы MathJax
+        settings = self.preview.settings()
+        settings.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, True)
+        settings.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls, True)
+        settings.setAttribute(QWebEngineSettings.JavascriptEnabled, True)
+        settings.setAttribute(QWebEngineSettings.PluginsEnabled, True)
+        settings.setAttribute(QWebEngineSettings.LocalStorageEnabled, True)
+
         # Отслеживание масштаба preview
         self.preview_zoom = 1.0
         self.preview.setZoomFactor(self.preview_zoom)
@@ -247,6 +259,22 @@ class MarkdownEditor(QMainWindow):
         self.statusBar().addPermanentWidget(QLabel(" | Zoom: "))
         self.zoom_label = QLabel("100%")
         self.statusBar().addPermanentWidget(self.zoom_label)
+
+    def set_window_icon(self):
+        """Устанавливает иконку окна"""
+        # Определяем путь к иконке
+        if getattr(sys, 'frozen', False):
+            # Если приложение запущено из exe (PyInstaller)
+            icon_path = os.path.join(sys._MEIPASS, 'markdown_editor_icon.ico')
+        else:
+            # Если запущено из исходников
+            icon_path = 'markdown_editor_icon.ico'
+
+        if os.path.exists(icon_path):
+            icon = QIcon(icon_path)
+            self.setWindowIcon(icon)
+            # Устанавливаем иконку для всего приложения (для всех окон)
+            self.app.setWindowIcon(icon)
 
     def setup_shortcuts(self):
         QShortcut(QKeySequence("Ctrl+Z"), self, self.editor.undo)
@@ -495,7 +523,7 @@ class MarkdownEditor(QMainWindow):
                 color: #e0e0e0 !important;
             }
             h1, h2, h3, h4, h5, h6 {
-                color: #64b4ff !important;
+                color: #e0e0e0 !important;
                 border-bottom: 1px solid #444 !important;
             }
             code {
@@ -596,6 +624,11 @@ class MarkdownEditor(QMainWindow):
             .highlight .vi { color: #9cdcfe !important } /* Переменные экземпляра */
             .highlight .vm { color: #9cdcfe !important } /* Переменные магические */
             .highlight .il { color: #b5cea8 !important } /* Integer long */
+
+            /* MathJax для темной темы */
+            mjx-container, mjx-container * {
+                color: #e0e0e0 !important;
+            }
             """
 
         template = f"""<!DOCTYPE html>
@@ -615,10 +648,11 @@ class MarkdownEditor(QMainWindow):
         }}
         {dark_styles}
         h1, h2, h3, h4, h5, h6 {{
-            color: #1e6bb8;
+            color: inherit;
             border-bottom: 1px solid #eee;
             padding-bottom: 5px;
             margin-top: 24px;
+            font-weight: bold;
         }}
         h1 {{ font-size: 2em; }}
         h2 {{ font-size: 1.75em; }}
@@ -753,6 +787,102 @@ class MarkdownEditor(QMainWindow):
         .highlight .vi {{ color: #000000 }} /* Переменные экземпляра */
         .highlight .vm {{ color: #000000 }} /* Переменные магические */
         .highlight .il {{ color: #009999 }} /* Integer long */
+
+        /* Стили для MathJax - исправление отображения формул */
+        mjx-container, mjx-container * {{
+            background-color: transparent !important;
+            background: transparent !important;
+        }}
+
+        mjx-container[display="true"] {{
+            background-color: transparent !important;
+            background: transparent !important;
+            text-align: left !important;
+            margin-left: 0 !important;
+        }}
+
+        mjx-container[jax="CHTML"] {{
+            background-color: transparent !important;
+            background: transparent !important;
+        }}
+
+        .MathJax, .MathJax * {{
+            background-color: transparent !important;
+            background: transparent !important;
+        }}
+
+        /* Векторы и стрелки */
+        mjx-stretchy-h, mjx-stretchy-v {{
+            background-color: transparent !important;
+        }}
+
+        /* Корни */
+        mjx-surd {{
+            background-color: transparent !important;
+        }}
+
+        /* Рамки и box */
+        mjx-box, mjx-mrow {{
+            background-color: transparent !important;
+        }}
+
+        /* Стили для печати в PDF - всегда светлая тема */
+        @media print {{
+            body {{
+                background-color: white !important;
+                color: black !important;
+            }}
+
+            h1, h2, h3, h4, h5, h6 {{
+                color: black !important;
+                border-bottom: 1px solid #ddd !important;
+            }}
+
+            code {{
+                background-color: #f5f5f5 !important;
+                color: #d73a49 !important;
+            }}
+
+            pre {{
+                background-color: #f5f5f5 !important;
+                color: black !important;
+            }}
+
+            pre code {{
+                background-color: #f5f5f5 !important;
+                color: black !important;
+            }}
+
+            blockquote {{
+                border-left: 4px solid #1e6bb8 !important;
+                background-color: #f8f9fa !important;
+                color: black !important;
+            }}
+
+            .highlight {{
+                background-color: #f5f5f5 !important;
+            }}
+
+            table, th, td {{
+                border-color: #ddd !important;
+                color: black !important;
+            }}
+
+            th {{
+                background-color: #f5f5f5 !important;
+            }}
+
+            /* MathJax для печати */
+            mjx-container, mjx-container * {{
+                color: black !important;
+                background-color: transparent !important;
+            }}
+
+            /* Подсветка синтаксиса для печати - светлая тема */
+            .highlight * {{
+                color: black !important;
+            }}
+        }}
     </style>
     <script>
         window.MathJax = {{
@@ -1194,7 +1324,6 @@ class MarkdownEditor(QMainWindow):
         msg_box.setTextFormat(Qt.RichText)
         msg_box.setText(
             "<h3>Markdown Editor</h3>"
-            "<p>A Markdown editor and viewer with syntax highlighting and LaTeX support.</p>"
             "<p>Features:</p>"
             "<ul>"
             "<li>Real-time preview</li>"
@@ -1204,7 +1333,7 @@ class MarkdownEditor(QMainWindow):
             "<li>Support for various encodings</li>"
             "<li>Customizable interface</li>"
             "</ul>"
-            "<p>Version 0.1.1</p>"
+            "<p>Version 0.1.4</p>"
             "<p>Developer - alexsevas</p>"
             "<p>mailto - a1exsevas@yandex.ru</p>"
         )

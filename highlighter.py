@@ -92,6 +92,11 @@ class MarkdownHighlighter(QSyntaxHighlighter):
         link_format.setFontUnderline(True)
         self.formats["link"] = link_format
 
+        # Формат для изображений (синий)
+        image_format = QTextCharFormat()
+        image_format.setForeground(QColor(30, 144, 255) if not self.dark_mode else QColor(100, 180, 255))
+        self.formats["image"] = image_format
+
         # Формат для цитат
         blockquote_format = QTextCharFormat()
         blockquote_format.setForeground(text_color)
@@ -161,6 +166,14 @@ class MarkdownHighlighter(QSyntaxHighlighter):
             marker_start = indent_len
             marker_len = len(list_match.group(2))
             self.setFormat(marker_start, marker_len, self.formats["markup"])
+
+        # Изображения Markdown: ![alt](url) - синим
+        for match in re.finditer(r'!\[([^\]]*)\]\(([^\)]+)\)', text):
+            self.setFormat(match.start(), match.end() - match.start(), self.formats["image"])
+
+        # HTML img теги: <img ... /> - синим
+        for match in re.finditer(r'<img\s+[^>]*/?>', text, re.IGNORECASE):
+            self.setFormat(match.start(), match.end() - match.start(), self.formats["image"])
 
         # Ссылки: [текст](url) - скобки оранжевым
         for match in re.finditer(r'(\[)([^\]]+)(\])(\()([^\)]+)(\))', text):
