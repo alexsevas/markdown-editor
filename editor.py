@@ -169,6 +169,11 @@ class MarkdownEditor(QMainWindow):
         save_pdf_action.triggered.connect(self.save_as_pdf)
         file_menu.addAction(save_pdf_action)
 
+        save_png_action = QAction("Save as PNG...", self)
+        save_png_action.setShortcut("Ctrl+Shift+P")
+        save_png_action.triggered.connect(self.save_as_png)
+        file_menu.addAction(save_png_action)
+
         file_menu.addSeparator()
 
         exit_action = QAction("Exit", self)
@@ -1292,6 +1297,124 @@ class MarkdownEditor(QMainWindow):
             # Сохраняем в PDF с callback
             self.preview.page().printToPdf(pdf_saved, layout)
 
+    def save_as_png(self):
+        """Сохраняет отрендеренный markdown в PNG файл (одна длинная картинка шириной A4)"""
+        # Предлагаем имя файла на основе текущего файла
+        default_name = ""
+        if self.current_file:
+            default_name = os.path.splitext(self.current_file)[0] + ".png"
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save as PNG",
+            default_name,
+            "PNG Files (*.png);;All Files (*)"
+        )
+
+        if path:
+            if not path.endswith('.png'):
+                path += '.png'
+
+            # Показываем сообщение о начале экспорта
+            self.statusBar().showMessage("Exporting to PNG (please wait)...", 0)
+            QApplication.processEvents()
+
+            # Ширина A4 в пикселях при 150 DPI: 210mm * 150 / 25.4 ≈ 1240px
+            self.png_export_width = 1240
+            self.png_export_path = path
+            self.png_height_attempts = 0
+            
+            # Сохраняем текущие размеры preview
+            self.png_old_preview_size = self.preview.size()
+            self.png_old_preview_min = self.preview.minimumSize()
+            self.png_old_preview_max = self.preview.maximumSize()
+            
+            # Ждем загрузки MathJax и получаем высоту
+            QTimer.singleShot(500, self._get_png_height)
+
+    def _get_png_height(self):
+        """Получает высоту страницы для PNG"""
+        # JavaScript для получения полной высоты документа
+        js_get_height = """
+        (function() {
+            var height = Math.max(
+                document.body.scrollHeight || 0,
+                document.body.offsetHeight || 0,
+                document.documentElement.scrollHeight || 0,
+                document.documentElement.offsetHeight || 0
+            );
+            return height;
+        })();
+        """
+        self.preview.page().runJavaScript(js_get_height, self._on_png_height_received)
+
+    def _on_png_height_received(self, height):
+        """Обработчик получения высоты страницы для PNG экспорта"""
+        self.png_height_attempts += 1
+        
+        if height and height > 100:
+            self.png_export_height = int(height) + 40  # Добавляем отступы
+            
+            # Убираем ограничения размера preview
+            self.preview.setMinimumSize(0, 0)
+            self.preview.setMaximumSize(16777215, 16777215)
+            
+            # Устанавливаем размер preview для захвата
+            self.preview.resize(self.png_export_width, self.png_export_height)
+            QApplication.processEvents()
+            
+            # Даем время на перерисовку
+            QTimer.singleShot(1000, self._do_png_capture)
+        elif self.png_height_attempts < 3:
+            # Пробуем еще раз
+            QTimer.singleShot(500, self._get_png_height)
+        else:
+            # Используем минимальную высоту
+            self.png_export_height = 800
+            self.preview.setMinimumSize(0, 0)
+            self.preview.setMaximumSize(16777215, 16777215)
+            self.preview.resize(self.png_export_width, self.png_export_height)
+            QApplication.processEvents()
+            QTimer.singleShot(500, self._do_png_capture)
+
+    def _do_png_capture(self):
+        """Выполняет захват страницы в PNG"""
+        try:
+            # Захватываем содержимое виджета
+            pixmap = self.preview.grab()
+            
+            if pixmap.isNull():
+                self.statusBar().showMessage("Failed to capture page", 3000)
+                self._cleanup_png_export()
+                return
+            
+            # Сохраняем в файл
+            if pixmap.save(self.png_export_path, "PNG"):
+                self.statusBar().showMessage(f"PNG saved to {self.png_export_path}", 3000)
+            else:
+                self.statusBar().showMessage("Failed to save PNG file", 3000)
+        except Exception as e:
+            msg_box = self.create_message_box(
+                QMessageBox.Critical,
+                "Error",
+                f"Failed to save PNG: {str(e)}"
+            )
+            msg_box.exec_()
+            self.statusBar().showMessage("PNG export failed", 3000)
+        finally:
+            self._cleanup_png_export()
+
+    def _cleanup_png_export(self):
+        """Очищает ресурсы после PNG экспорта"""
+        # Восстанавливаем размеры preview
+        if hasattr(self, 'png_old_preview_min'):
+            self.preview.setMinimumSize(self.png_old_preview_min)
+        if hasattr(self, 'png_old_preview_max'):
+            self.preview.setMaximumSize(self.png_old_preview_max)
+        if hasattr(self, 'png_old_preview_size'):
+            self.preview.resize(self.png_old_preview_size)
+        QApplication.processEvents()
+
     def toggle_preview(self, checked):
         if checked:
             self.splitter.widget(1).show()
@@ -1333,7 +1456,7 @@ class MarkdownEditor(QMainWindow):
             "<li>Support for various encodings</li>"
             "<li>Customizable interface</li>"
             "</ul>"
-            "<p>Version 0.1.4</p>"
+            "<p>Version 0.1.5</p>"
             "<p>Developer - alexsevas</p>"
             "<p>mailto - a1exsevas@yandex.ru</p>"
         )

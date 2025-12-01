@@ -1,4 +1,4 @@
-# v0.1.4
+# v0.1.5
 
 # conda activate mdpy311
 # pip install PyQt5 PyQtWebEngine markdown chardet Pygments
